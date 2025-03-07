@@ -6,7 +6,6 @@ import numpy as np
 from PIL import Image
 import threading
 import queue
-import chunker_lz4 as chunker
 from dataclasses import dataclass
 import json
 # display settings
@@ -80,6 +79,24 @@ REVERSED_ID_MAP = {
     "28" : (84, 65, 65),     # HIGHLANDS/FOOTHILLS
     "29" : (26, 26, 26),     # POLITICAL WATER (redundant)
     "30" : (56, 56, 56),     # POLITICAL LAND
+}
+
+REVERSED_POLITICAL_ID_MAP = {
+    0   :   (53, 53, 53), 
+    1   :   (121, 7, 18), # DRAGONEGGLOL
+    2   :   (42, 86, 18), # UMM
+    3   :   (183, 197, 215), # WATBOI
+    4   :   (20, 209, 136), # ASIMPLECREATOR
+    5   :   (193, 38, 38), # CATARMOUR
+    6   :   (63, 63, 116), # BALLISTICMISSILE
+    7   :   (0,0,0),
+    8   :   (0,0,0),
+    9   :   (0,0,0),
+    10  :   (0,0,0),
+    11  :   (0,0,0),
+    12  :   (0,0,0),
+    13  :   (0,0,0),
+    14  :   (0,0,0)
 }
 
 # TODO
@@ -166,8 +183,8 @@ class Tile(arcade.SpriteSolidColor):
         self.id_ = id_
 
 
-# Suggestion from @typefoo
 class GridLayer():
+    """Suggestion from @typefoo"""
     def __init__(self, grid_size: tuple[int, int], tile_size: int = 10):
         self.tile_size = tile_size
         self.grid_size = grid_size
@@ -180,56 +197,6 @@ class GridLayer():
             return self.grid[x][y]
         return None
 
-
-def load_chunk(tilex:float, tiley:float, tiles_per_chunk:int, grid, chunkmanager) -> list:
-    chunk_spritelist = []
-    chunk_data = chunkmanager.fetch_chunk((tilex,tiley))
-    for x in range(tiles_per_chunk):
-        for y in range(tiles_per_chunk):
-            if chunk_data is None:
-                break
-            id_ = chunk_data[x][y]
-            tile = Tile(1, 1, (x+(tilex*20))-9.5, (y+(tiley*20))-9.5, (0,0,0,0), id_)
-            chunk_spritelist.append(tile)
-            grid[x+(tilex*20)][y+(tiley*20)] = tile
-    return chunk_spritelist
-
-
-def save_chunk(tilex:float, tiley:float, tiles_per_chunk:int, grid, chunkmanager):
-    chunk_tiles = []
-    for x in range(tiles_per_chunk):
-        for y in range(tiles_per_chunk):
-            tile = grid.__getitem__((round(tilex*tiles_per_chunk+x),round(tiley*tiles_per_chunk+y)))
-            if not tile == None:
-                chunk_tiles.append(tile.id_)
-    chunkmanager.insert_chunk_masterthread((round(tilex*tiles_per_chunk),round(tiley*tiles_per_chunk)),chunk_tiles)
-
-#
-
-def background_loader(chunk_queue, result_queue, grid):
-    while True:
-        chunk_position = chunk_queue.get()
-        if chunk_position is None:
-            break
-
-        returned_spritelist = load_chunk(chunk_position[0], chunk_position[1], 20, grid, lower_chunk_manager)
-        result_queue.put(returned_spritelist)
-        chunk_queue.task_done()
-
-
-def background_saver(width, height, lower_grid, upper_grid, political_grid, lower_chunkmanager, upper_chunkmanager, political_chunkmanager):
-    for x in range(width):
-        if x % 10 == 0:
-            print(f"Progress: {x} rows saved... {(x/width)*100.0}%")
-        for y in range(height):
-            save_chunk(x,y,20,lower_grid,lower_chunkmanager)
-            save_chunk(x,y,1,upper_grid,upper_chunkmanager)
-            save_chunk(x,y,1,political_grid,political_chunkmanager)
-
-
-lower_chunk_manager = chunker.Manager("savedata_lz4/lower_chunks.db",tile_count=20,map_size=(600,300))
-upper_chunk_manager = chunker.Manager("savedata_lz4/upper_chunks.db",tile_count=1,map_size=(600,300))
-upper_political_manager=chunker.Manager("savedata_lz4/upper_political.db",tile_count=1,map_size=(600,300))
 
 class Game(arcade.Window):
     def __init__(self, width, height, title):
@@ -257,6 +224,21 @@ class Game(arcade.Window):
         self.political_layer    = GridLayer((600,300)   ,20)
         self.high_terrain_layer = GridLayer((600,300)   ,20)
         self.low_terrain_layer  = GridLayer((12000,6000),1)
+
+        loaded_data = np.load("shareddata/data.npz")
+        self.loaded_id_grid             = loaded_data['a']
+        self.loaded_id_grid_political   = loaded_data['b']
+        self.loaded_id_grid_small       = loaded_data['c']
+
+        print(f"Type of loaded_id_grid {type(self.loaded_id_grid)}")
+        print(f"Type of loaded_id_grid_political {type(self.loaded_id_grid_political)}")
+        print(f"Type of loaded_id_grid_small {type(self.loaded_id_grid_small)}")
+
+        print(f"Diagnostic... loaded_id_grid size {np.size(self.loaded_id_grid)}")
+        print(f"Diagnostic... loaded_id_grid_political size {np.size(self.loaded_id_grid_political)}")
+        print(f"Diagnostic... loaded_id_grid_small size {np.size(self.loaded_id_grid_small)}")
+
+        print(self.loaded_id_grid_small.shape)
 
         geographic_icon  = arcade.load_texture("icons/geo_map_icon.png")
         political_icon   = arcade.load_texture("icons/pol_map_icon.png")
@@ -291,7 +273,6 @@ class Game(arcade.Window):
             anchor_x="center",
             anchor_y="center"
         )
-        self.popupmenu_buttons.with_background(color=arcade.types.Color(20,20,20,255))
         self.popupmenu_buttons.visible = False
 
         save_button = UISaveButton(width=100,height=32,text="Save map")
@@ -412,6 +393,7 @@ class Game(arcade.Window):
         layer_buttons.add(political_toggle)
         layer_buttons.add(biome_toggle)
 
+
     def on_color_button_choose_color(self, event: ChooseColor) -> bool:
         self.selected_lower_id = event.id_
         toast = Toast(f"Selected {event.id_name}", width=250)
@@ -426,6 +408,7 @@ class Game(arcade.Window):
         self.toasts.add(toast)
 
         return True
+
 
     def on_notification_toast(self, message:str="", warn:bool=False, error:bool=False):
         toast = Toast(message, duration=2)
@@ -454,8 +437,67 @@ class Game(arcade.Window):
 
         self.toasts.add(toast)
 
+
     def on_clicked_save(self, event: SaveWorld):
-        background_saver(600,300,self.low_terrain_layer,self.high_terrain_layer,self.political_layer,lower_chunk_manager,upper_chunk_manager,upper_political_manager)
+        np.savez_compressed("shareddata/data.npz",a=self.loaded_id_grid,b=self.loaded_id_grid_political,c=self.loaded_id_grid_small)
+        print("saved data.")
+
+    def background_loader(self, chunk_queue, result_queue, grid, id_grid):
+        while True:
+            chunk_position = chunk_queue.get()
+            if chunk_position is None:
+                break
+
+            tilex, tiley = chunk_position
+            returned_spritelist = self.load_chunk(tilex, tiley, 20, grid, id_grid)
+            
+            # Add to result queue
+            result_queue.put((tilex, tiley, returned_spritelist))
+            chunk_queue.task_done()
+
+    def load_chunk(self, tilex: int, tiley: int, tiles_per_chunk: int, grid, id_grid) -> list:
+        chunk_spritelist = []
+        chunk_data = np.zeros((tiles_per_chunk,tiles_per_chunk),dtype=np.uint8)
+        for _x_ in range(tiles_per_chunk):
+            for _y_ in range(tiles_per_chunk):
+                chunk_data[_x_][_y_] = id_grid[_x_+tilex*tiles_per_chunk][_y_+tiley*tiles_per_chunk]
+
+        for x in range(tiles_per_chunk):
+            for y in range(tiles_per_chunk):
+                try:
+                    id_ = chunk_data[x][y]
+                    world_x = x+tilex*20
+                    world_y = y+tiley*20
+                    if id_ == 32:
+                        pixel_rgba = (0,0,0,0)
+                    else:
+                        pixel_rgba = REVERSED_ID_MAP.get(str(id_), (0, 0, 0)) + (255,)
+
+                    tile = Tile(1, 1, world_x-9.5, world_y-9.5, pixel_rgba, id_)
+                    chunk_spritelist.append(tile)
+
+                    grid[world_x][world_y] = tile
+
+                except IndexError:
+                    print(f"Warning: Chunk ({tilex}, {tiley}) has missing data at ({x}, {y})")
+
+        return chunk_spritelist
+
+    def process_completed_chunks(self):
+        try:
+            for _ in range(1):
+                if self.chunk_result_queue.empty():
+                    break
+                    
+                tilex, tiley, received_sprite_list = self.chunk_result_queue.get()
+            
+                for tile in received_sprite_list:
+                    self.terrain_scene.add_sprite("2",tile)
+                
+                self.chunk_result_queue.task_done()
+                
+        except queue.Empty:
+            pass
 
     def setup(self):
         self.terrain_scene = arcade.Scene()
@@ -492,34 +534,35 @@ class Game(arcade.Window):
             biome_column = np.zeros(300,dtype=object)
             politic_column = np.zeros(300,dtype=object)
             if x % 50 == 0:
-                print(f"Progress: {x} rows generated...")
+                print(f"+ Progress: {x} rows loaded...")
             for y in range(300):
-                chunk = upper_chunk_manager.fetch_chunk_masterthread((x,y))
-                id_value = chunk.tolist()
-                id_value:int = id_value[0]
-                pixel_rgba = tuple(REVERSED_ID_MAP.get(id_value)) + (255,)
+                id_value = self.loaded_id_grid[x][y]
+                political_value = self.loaded_id_grid_political[x][y]
+                political_rgb = REVERSED_POLITICAL_ID_MAP.get(political_value,(53,53,53))
+                pixel_rgb = REVERSED_ID_MAP.get(str(id_value),0)
                 world_x = x * 20
                 world_y = y * 20
 
-                if pixel_rgba == (0,0,127,255):
+                if id_value == 0:
                     tile = Tile(20, 20, world_x, world_y, (0,0,0,0), id_value)
-                    political_tile = Tile(20, 20, world_x, world_y, (56, 56, 56, 100), 30)
+                    political_tile = Tile(20, 20, world_x, world_y, political_rgb+(100,), 29)
                 else:
-                    tile = Tile(20, 20, world_x, world_y, pixel_rgba, id_value)
-                    political_tile = Tile(20, 20, world_x, world_y, (56, 56, 56, 255), 30)
+                    tile = Tile(20, 20, world_x, world_y, pixel_rgb+(255,), id_value)
+                    political_tile = Tile(20, 20, world_x, world_y, political_rgb+(255,), 30)
 
                 self.terrain_scene.add_sprite("1",tile)
                 self.political_scene.add_sprite("0", political_tile)
-                biome_column[y] = tile
-                politic_column[y] = political_tile
+                
+                biome_column[y]     = tile
+                politic_column[y]   = political_tile
 
             self.high_terrain_layer.grid[x] = biome_column
-            self.political_layer.grid[x] = politic_column
+            self.political_layer.grid[x]    = politic_column
 
-        # Start the worker thread with both request and result queues
+        #np.savez_compressed("shareddata/data.npz",a=id_grid,b=id_grid_political,c=small_id_grid)
         loader_thread = threading.Thread(
-            target=background_loader, 
-            args=(self.chunk_request_queue, self.chunk_result_queue, self.low_terrain_layer.grid), 
+            target=self.background_loader, 
+            args=(self.chunk_request_queue, self.chunk_result_queue, self.low_terrain_layer.grid, self.loaded_id_grid_small), 
             daemon=True
         )
         loader_thread.start()
@@ -528,6 +571,7 @@ class Game(arcade.Window):
         self.resized_size = width, height
         print(f"resized {width} and {height}")
         return super().on_resize(width, height)
+
 
     def on_update(self, dt):
         self.camera.position += (self.camera_speed[0]*self.zoomed_speed_mod, self.camera_speed[1]*self.zoomed_speed_mod)
@@ -565,21 +609,6 @@ class Game(arcade.Window):
 
         self.process_completed_chunks()
 
-    def process_completed_chunks(self):
-        try:
-            for _ in range(1):
-                if self.chunk_result_queue.empty():
-                    break
-                    
-                received_sprite_list = self.chunk_result_queue.get()
-            
-                for tile in received_sprite_list:
-                    self.terrain_scene.add_sprite("2",tile)
-                
-                self.chunk_result_queue.task_done()
-                
-        except queue.Empty:
-            pass
 
     def on_draw(self):
         self.camera.use() 
@@ -610,7 +639,14 @@ class Game(arcade.Window):
         
         self.ui.draw()
 
+
     def on_key_press(self, symbol, modifier):
+        if symbol == arcade.key.R:
+            print(self.requested_chunks)
+            self.requested_chunks = set()
+            print(self.requested_chunks)
+            print(f"+ Clearing generated chunks ...")
+
         if symbol   == arcade.key.W or symbol == arcade.key.UP:
             self.camera_speed = (self.camera_speed[0], 10.0)
         elif symbol == arcade.key.A or symbol == arcade.key.LEFT:
@@ -644,6 +680,7 @@ class Game(arcade.Window):
         if symbol == arcade.key.EQUAL or symbol == arcade.key.NUM_ADD:
             self.zoom_speed = 0.01
 
+
     def on_key_release(self, symbol, modifiers):
         if symbol == arcade.key.W or symbol == arcade.key.S or symbol == arcade.key.UP or symbol == arcade.key.DOWN:
             self.camera_speed = (self.camera_speed[0], 0.0)
@@ -657,6 +694,7 @@ class Game(arcade.Window):
 
         if symbol == arcade.key.KEY_0 or symbol == arcade.key.KEY_9:
             self.zoomed_speed_mod_adder = 0
+
 
     def on_mouse_press(self, x, y, button, modifiers):
         if button is arcade.MOUSE_BUTTON_LEFT:
@@ -675,32 +713,42 @@ class Game(arcade.Window):
 
             if self.editing_mode == True:
                 list_of_tiles = np.zeros((self.editing_mode_size,self.editing_mode_size), dtype=object)
-                if not self.editing_mode_size <= 1:
-                    half_size = self.editing_mode_size // 2
-                    radius = half_size
+                list_of_tile_positions = []
 
-                    for x_offset in range(self.editing_mode_size):
-                        for y_offset in range(self.editing_mode_size):
-                            x_ = world_x + (x_offset - half_size)
-                            y_ = world_y + (y_offset - half_size)
+                half_size = self.editing_mode_size // 2
+                radius = half_size
 
-                            distance = ((x_offset - half_size) + 0.5) ** 2 + ((y_offset - half_size) + 0.5) ** 2
+                for x_offset in range(self.editing_mode_size):
+                    for y_offset in range(self.editing_mode_size):
+                        x_ = world_x + (x_offset - half_size)
+                        y_ = world_y + (y_offset - half_size)
 
+                        distance = ((x_offset - half_size) + 0.5) ** 2 + ((y_offset - half_size) + 0.5) ** 2
+
+                        if not self.editing_mode_size == 1:
                             if distance <= (radius + 0.5) ** 2:
                                 list_of_tiles[x_offset, y_offset] = self.low_terrain_layer.__getitem__((round(x_ + 9.5), round(y_ + 9.5)))
+                                list_of_tile_positions.append((round(x_ + 9.5), round(y_ + 9.5)))
                             else:
                                 list_of_tiles[x_offset, y_offset] = None 
-                else:
-                    list_of_tiles[0] = self.low_terrain_layer.__getitem__((round(world_x + 9.5), round(world_y + 9.5)))
+                        else:
+                            list_of_tiles[x_offset, y_offset] = self.low_terrain_layer.__getitem__((round(x_ + 9.5), round(y_ + 9.5)))
+                            list_of_tile_positions.append((round(x_ + 9.5), round(y_ + 9.5)))
 
                 for x_ in range(self.editing_mode_size):
                     for y_ in range(self.editing_mode_size):
                         if not list_of_tiles[x_][y_] is None:
-                            list_of_tiles[x_][y_].id_ = self.selected_lower_id
                             pixel_rgba = REVERSED_ID_MAP.get(str(self.selected_lower_id),(0,0,0)) + (255,)
                             list_of_tiles[x_][y_].color = pixel_rgba
                         else:
                             print(f"no tiles returned to selection ...")
+                
+                print(list_of_tile_positions)
+                if not list_of_tile_positions is None:
+                    for tile in list_of_tile_positions:
+                        print(f"tile[0] {tile[0]} + tile[1] {tile[1]}")
+                        self.loaded_id_grid_small[tile[0],tile[1]] = self.selected_lower_id
+
 
     def on_mouse_drag(self, x, y, dx, dy, buttons, modifiers):
         camera = self.camera
@@ -720,37 +768,48 @@ class Game(arcade.Window):
 
             if self.editing_mode == True:
                 list_of_tiles = np.zeros((self.editing_mode_size,self.editing_mode_size), dtype=object)
-                if not self.editing_mode_size <= 1:
-                    half_size = self.editing_mode_size // 2
-                    radius = half_size
+                list_of_tile_positions = []
 
-                    for x_offset in range(self.editing_mode_size):
-                        for y_offset in range(self.editing_mode_size):
-                            x_ = world_x + (x_offset - half_size)
-                            y_ = world_y + (y_offset - half_size)
+                half_size = self.editing_mode_size // 2
+                radius = half_size
 
-                            distance = ((x_offset - half_size) + 0.5) ** 2 + ((y_offset - half_size) + 0.5) ** 2
+                for x_offset in range(self.editing_mode_size):
+                    for y_offset in range(self.editing_mode_size):
+                        x_ = world_x + (x_offset - half_size)
+                        y_ = world_y + (y_offset - half_size)
 
+                        distance = ((x_offset - half_size) + 0.5) ** 2 + ((y_offset - half_size) + 0.5) ** 2
+
+                        if not self.editing_mode_size == 1:
                             if distance <= (radius + 0.5) ** 2:
                                 list_of_tiles[x_offset, y_offset] = self.low_terrain_layer.__getitem__((round(x_ + 9.5), round(y_ + 9.5)))
+                                list_of_tile_positions.append((round(x_ + 9.5), round(y_ + 9.5)))
                             else:
                                 list_of_tiles[x_offset, y_offset] = None 
-                else:
-                    list_of_tiles[0] = self.low_terrain_layer.__getitem__((round(world_x + 9.5), round(world_y + 9.5)))
+                        else:
+                            list_of_tiles[x_offset, y_offset] = self.low_terrain_layer.__getitem__((round(x_ + 9.5), round(y_ + 9.5)))
+                            list_of_tile_positions.append((round(x_ + 9.5), round(y_ + 9.5)))
 
                 for x_ in range(self.editing_mode_size):
                     for y_ in range(self.editing_mode_size):
                         if not list_of_tiles[x_][y_] is None:
-                            list_of_tiles[x_][y_].id_ = self.selected_lower_id
                             pixel_rgba = REVERSED_ID_MAP.get(str(self.selected_lower_id),(0,0,0)) + (255,)
                             list_of_tiles[x_][y_].color = pixel_rgba
                         else:
-                            print(f"no tiles returned to list? ...")
+                            print(f"no tiles returned to selection ...")
+                
+                print(list_of_tile_positions)
+                if not list_of_tile_positions is None:
+                    for tile in list_of_tile_positions:
+                        print(f"tile[0] {tile[0]} + tile[1] {tile[1]}")
+                        self.loaded_id_grid_small[tile[0],tile[1]] = self.selected_lower_id
+
 
     def on_mouse_release(self, x, y, button, modifiers):
         if button is arcade.MOUSE_BUTTON_LEFT:
             self.last_pressed_world = None
             self.last_pressed_screen = None
+
 
     def on_mouse_scroll(self, x, y, scroll_x, scroll_y):
         if self.editing_mode == False:
@@ -773,6 +832,7 @@ class Game(arcade.Window):
             else:
                 self.editing_mode_size += int(scroll_y)
         
+
     def on_mouse_motion(self, x, y, dx, dy):
         self.current_position_screen = (x, y)
         diff_fr_res = (SCREEN_SIZE[0]-self.resized_size[0])/2, (SCREEN_SIZE[1]-self.resized_size[1])/2
@@ -786,6 +846,7 @@ class Game(arcade.Window):
         tile_x = round(world_x / 20)
         tile_y = round(world_y / 20)
         self.last_interacted_tile = self.high_terrain_layer.__getitem__((tile_x, tile_y))
+
 
     def cleanup(self):
         self.chunk_result_queue.shutdown()
