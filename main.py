@@ -247,6 +247,165 @@ class Game(arcade.Window):
         self.ui = arcade.gui.UIManager()
         self.ui.enable()
 
+        self.mouse_click_anchor = self.ui.add(arcade.gui.UIAnchorLayout())
+        self.mouse_click_anchor.visible = False
+        self.menu_options = self.mouse_click_anchor.add(
+            arcade.gui.UIGridLayout(
+                column_count=5,
+                row_count=5,
+                vertical_spacing=4,
+                horizontal_spacing=4
+                ).with_background(color=arcade.types.Color(10,10,10,100)),
+            anchor_x="center",
+            anchor_y="center"
+        )
+
+        village_icon = arcade.load_texture("icons/structures/str_village_64x64.png")
+        add_str_village = arcade.gui.UIFlatButton(text="", width=64, height=64)
+        add_str_village.add(
+            child=arcade.gui.UIImage(
+                texture=village_icon,
+                width =64,
+                height=64,
+            ),
+            anchor_x="center",
+            anchor_y="center"
+        )
+
+        town_icon = arcade.load_texture("icons/structures/str_town_64x64.png")
+        add_str_town = arcade.gui.UIFlatButton(text="", width=64, height=64)
+        add_str_town.add(
+            child=arcade.gui.UIImage(
+                texture=town_icon,
+                width =64,
+                height=64,
+            ),
+            anchor_x="center",
+            anchor_y="center"
+        )
+
+        city_icon = arcade.load_texture("icons/structures/str_city_64x64.png")
+        add_str_city = arcade.gui.UIFlatButton(text="", width=64, height=64)
+        add_str_city.add(
+            child=arcade.gui.UIImage(
+                texture=city_icon,
+                width =64,
+                height=64,
+            ),
+            anchor_x="center",
+            anchor_y="center"
+        )
+
+        metro_icon = arcade.load_texture("icons/structures/str_metro_64x64.png")
+        add_str_metro = arcade.gui.UIFlatButton(text="", width=64, height=64)
+        add_str_metro.add(
+            child=arcade.gui.UIImage(
+                texture=metro_icon,
+                width =64,
+                height=64,
+            ),
+            anchor_x="center",
+            anchor_y="center"
+        )
+
+        outpost_icon = arcade.load_texture("icons/structures/str_outpost_64x64.png")
+        add_str_outpost = arcade.gui.UIFlatButton(text="", width=64, height=64)
+        add_str_outpost.add(
+            child=arcade.gui.UIImage(
+                texture=outpost_icon,
+                width =64,
+                height=64,
+            ),
+            anchor_x="center",
+            anchor_y="center"
+        )
+
+        keep_icon = arcade.load_texture("icons/structures/str_keep_64x64.png")
+        add_str_keep = arcade.gui.UIFlatButton(text="", width=64, height=64)
+        add_str_keep.add(
+            child=arcade.gui.UIImage(
+                texture=keep_icon,
+                width =64,
+                height=64,
+            ),
+            anchor_x="center",
+            anchor_y="center"
+        )
+
+        fortress_icon = arcade.load_texture("icons/structures/str_fortress_64x64.png")
+        add_str_fortress = arcade.gui.UIFlatButton(text="", width=64, height=64)
+        add_str_fortress.add(
+            child=arcade.gui.UIImage(
+                texture=fortress_icon,
+                width =64,
+                height=64,
+            ),
+            anchor_x="center",
+            anchor_y="center"
+        )
+
+        bastion_icon = arcade.load_texture("icons/structures/str_bastion_64x64.png")
+        add_str_bastion = arcade.gui.UIFlatButton(text="", width=64, height=64)
+        add_str_bastion.add(
+            child=arcade.gui.UIImage(
+                texture=bastion_icon,
+                width =64,
+                height=64,
+            ),
+            anchor_x="center",
+            anchor_y="center"
+        )
+
+        self.menu_options.add(add_str_village,  0, 0)
+        self.menu_options.add(add_str_town,     1, 0)
+        self.menu_options.add(add_str_city,     2, 0)
+        self.menu_options.add(add_str_metro,    3, 0)
+        self.menu_options.add(add_str_outpost,  4, 0)
+        self.menu_options.add(add_str_keep,     0, 1)
+        self.menu_options.add(add_str_fortress, 1, 1)
+        self.menu_options.add(add_str_bastion,  2, 1)
+
+        @add_str_village.event
+        def on_click(event: arcade.gui.UIOnClickEvent):
+            # ...
+            self.mouse_click_anchor.visible = False
+
+        @add_str_town.event
+        def on_click(event: arcade.gui.UIOnClickEvent):
+            # ...
+            self.mouse_click_anchor.visible = False
+
+        @add_str_city.event
+        def on_click(event: arcade.gui.UIOnClickEvent):
+            # ...
+            self.mouse_click_anchor.visible = False
+
+        @add_str_metro.event
+        def on_click(event: arcade.gui.UIOnClickEvent):
+            # ...
+            self.mouse_click_anchor.visible = False
+
+        @add_str_outpost.event
+        def on_click(event: arcade.gui.UIOnClickEvent):
+            # ...
+            self.mouse_click_anchor.visible = False
+
+        @add_str_keep.event
+        def on_click(event: arcade.gui.UIOnClickEvent):
+            # ...
+            self.mouse_click_anchor.visible = False
+
+        @add_str_fortress.event
+        def on_click(event: arcade.gui.UIOnClickEvent):
+            # ...
+            self.mouse_click_anchor.visible = False
+
+        @add_str_bastion.event
+        def on_click(event: arcade.gui.UIOnClickEvent):
+            # ...
+            self.mouse_click_anchor.visible = False
+
+
         anchor = self.ui.add(arcade.gui.UIAnchorLayout())
         layer_buttons = anchor.add(
             arcade.gui.UIBoxLayout(vertical=True, space_between=4),
@@ -393,7 +552,6 @@ class Game(arcade.Window):
         layer_buttons.add(political_toggle)
         layer_buttons.add(biome_toggle)
 
-
     def on_color_button_choose_color(self, event: ChooseColor) -> bool:
         self.selected_lower_id = event.id_
         toast = Toast(f"Selected {event.id_name}", width=250)
@@ -408,7 +566,6 @@ class Game(arcade.Window):
         self.toasts.add(toast)
 
         return True
-
 
     def on_notification_toast(self, message:str="", warn:bool=False, error:bool=False):
         toast = Toast(message, duration=2)
@@ -436,7 +593,6 @@ class Game(arcade.Window):
         toast.with_padding(all=10)
 
         self.toasts.add(toast)
-
 
     def on_clicked_save(self, event: SaveWorld):
         np.savez_compressed("shareddata/data.npz",a=self.loaded_id_grid,b=self.loaded_id_grid_political,c=self.loaded_id_grid_small)
@@ -559,7 +715,6 @@ class Game(arcade.Window):
             self.high_terrain_layer.grid[x] = biome_column
             self.political_layer.grid[x]    = politic_column
 
-        #np.savez_compressed("shareddata/data.npz",a=id_grid,b=id_grid_political,c=small_id_grid)
         loader_thread = threading.Thread(
             target=self.background_loader, 
             args=(self.chunk_request_queue, self.chunk_result_queue, self.low_terrain_layer.grid, self.loaded_id_grid_small), 
@@ -697,6 +852,10 @@ class Game(arcade.Window):
 
 
     def on_mouse_press(self, x, y, button, modifiers):
+        if button is arcade.MOUSE_BUTTON_RIGHT:
+            if self.editing_mode == True:
+                self.mouse_click_anchor.visible = True
+
         if button is arcade.MOUSE_BUTTON_LEFT:
             self.last_pressed_screen = (x, y)
             diff_fr_res = (SCREEN_SIZE[0]-self.resized_size[0])/2, (SCREEN_SIZE[1]-self.resized_size[1])/2
@@ -754,7 +913,8 @@ class Game(arcade.Window):
         camera = self.camera
         zoom = camera.zoom #
         if buttons is arcade.MOUSE_BUTTON_RIGHT:
-            camera.position -= (dx / zoom, dy / zoom)
+            if not self.editing_mode == True:
+                camera.position -= (dx / zoom, dy / zoom)
         if buttons is arcade.MOUSE_BUTTON_LEFT:
             self.current_position_screen = (x, y)
             camera_x, camera_y = camera.position
@@ -854,7 +1014,7 @@ class Game(arcade.Window):
 
 
 def main():
-    game = Game(WIDTH, HEIGHT, "NEONATION")
+    game = Game(WIDTH, HEIGHT, "NATIONWIDER")
     game.setup()
     arcade.run()
     game.cleanup()
