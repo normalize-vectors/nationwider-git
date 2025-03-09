@@ -122,13 +122,6 @@ REVERSED_POLITICAL_ID_MAP = {
     5   :   (193, 38, 38), # CATARMOUR
     6   :   (63, 63, 116), # BALLISTICMISSILE
     7   :   (0,0,0),
-    8   :   (0,0,0),
-    9   :   (0,0,0),
-    10  :   (0,0,0),
-    11  :   (0,0,0),
-    12  :   (0,0,0),
-    13  :   (0,0,0),
-    14  :   (0,0,0)
 }
 
 ICON_ID_MAP = {
@@ -139,21 +132,11 @@ ICON_ID_MAP = {
     4: "icons/structures/str_outpost",
     5: "icons/structures/str_keep",
     6: "icons/structures/str_fortress",
-    7: "icons/structures/Str_bastion",
+    7: "icons/structures/str_bastion",
     8: "icons/info/info_note",
 }
 
-# TODO
-# Terrain layer
-# Political layer
-# Icon layer
-# be able to add notes to icons
-# be able to add notes to regions < at the zoomed in layer
-# LOD chunks
-
-# 600 X 300
-
-# hello world
+# ---
 
 @dataclass
 class ChooseColor(arcade.gui.UIEvent):
@@ -170,6 +153,7 @@ class NotifyUser(arcade.gui.UIEvent):
 class SaveWorld(arcade.gui.UIEvent):
     save    : bool
 
+# ---
 
 class Toast(arcade.gui.UILabel):
     """Info notification"""
@@ -184,7 +168,6 @@ class Toast(arcade.gui.UILabel):
 
         if self.time > self.duration:
             self.parent.remove(self)
-
 
 class UIPalleteButton(arcade.gui.UIFlatButton):
     def __init__(self, *, x = 0, y = 0, width = 100, height = 50, text="", multiline=False, size_hint=None, size_hint_min=None, size_hint_max=None, style=None, id_=0, supplied_id_name="", **kwargs):
@@ -203,7 +186,6 @@ class UIPalleteButton(arcade.gui.UIFlatButton):
     def on_choose_color(self, event: ChooseColor):
         pass
 
-
 class UISaveButton(arcade.gui.UIFlatButton):
     def __init__(self, *, x = 0, y = 0, width = 100, height = 50, text="", multiline=False, size_hint=None, size_hint_min=None, size_hint_max=None, style=None, **kwargs):
         super().__init__(x=x, y=y, width=width, height=height, text=text, multiline=multiline, size_hint=size_hint, size_hint_min=size_hint_min, size_hint_max=size_hint_max, style=style, **kwargs)
@@ -219,13 +201,7 @@ class UISaveButton(arcade.gui.UIFlatButton):
     def on_click_save(self, event: SaveWorld):
         pass
 
-
-class Tile(arcade.SpriteSolidColor):
-    def __init__(self, width, height, x, y, color, id_):
-        super().__init__(width, height, x, y, arcade.color.WHITE)
-        self.color = color
-        self.id_ = id_
-
+# ---
 
 class PlaceIcon(arcade.Sprite):
     def __init__(self, path_or_texture = None, scale = 1, center_x = 0, center_y = 0, angle = 0, icon_id = 0, text="", **kwargs):
@@ -233,6 +209,25 @@ class PlaceIcon(arcade.Sprite):
         self.icon_id = icon_id
         self.text = text
 
+class VesselIcon(arcade.Sprite):
+    def __init__(self, path_or_texture = None, scale = 1, center_x = 0, center_y = 0, angle = 0, icon_id = 0, troop_count = 0, **kwargs):
+        super().__init__(path_or_texture, scale, center_x, center_y, angle, **kwargs)
+        self.icon_id = icon_id
+        self.troop_count = troop_count
+
+class TroopIcon(arcade.Sprite):
+    def __init__(self, path_or_texture = None, scale = 1, center_x = 0, center_y = 0, angle = 0, icon_id = 0, troop_count = 0, **kwargs):
+        super().__init__(path_or_texture, scale, center_x, center_y, angle, **kwargs)
+        self.icon_id = icon_id
+        self.troop_count = troop_count
+
+# ---
+
+class Tile(arcade.SpriteSolidColor):
+    def __init__(self, width, height, x, y, color, id_):
+        super().__init__(width, height, x, y, arcade.color.WHITE)
+        self.color = color
+        self.id_ = id_
 
 class GridLayer():
     """Suggestion from @typefoo"""
@@ -248,12 +243,13 @@ class GridLayer():
             return self.grid[x][y]
         return None
 
+# ---
 
 class Game(arcade.Window):
     def __init__(self, width, height, title):
         super().__init__(width, height, title, resizable=True)
-        arcade.enable_timings(165)
-        self.camera                 = None
+        self.camera                 = arcade.camera.Camera2D(); 
+        self.camera.position        = (0,0)
         self.resized_size           = 1920, 1080
         self.camera_speed           = 0.0, 0.0
         self.zoomed_speed_mod_adder = 0.0
@@ -275,42 +271,59 @@ class Game(arcade.Window):
         self.selected_world_icon    = None
         self.moving_the_icon        = False
 
+        self.terrain_scene          = arcade.Scene()
+        self.political_scene        = arcade.Scene()
+        self.info_scene             = arcade.Scene()
+
+        self.chunk_request_queue    = queue.Queue()
+        self.chunk_result_queue     = queue.Queue()
+        self.requested_chunks       = set()
+
+        self.terrain_scene.add_sprite_list("0") # <- water layer
+        self.terrain_scene.add_sprite_list("1") # <- terrain layer BIG
+        self.terrain_scene.add_sprite_list("2") # <- terrain layer SMALL
+
+        self.info_scene.add_sprite_list("0")
+        self.info_scene_list = []
+
+        self.political_scene.add_sprite_list("0")
+
+        self.ui = arcade.gui.UIManager()
+        self.ui.enable()
+
+        anchor = self.ui.add(arcade.gui.UIAnchorLayout())
+        self.toasts = anchor.add(arcade.gui.UIBoxLayout(space_between=2), anchor_x="left", anchor_y="top")
+        self.toasts.with_padding(all=10)
+
+        # < - DEFINING GRIDS FOR ALL LAYERS #GRIDS
         self.political_layer    = GridLayer((600,300)   ,20)
         self.high_terrain_layer = GridLayer((600,300)   ,20)
         self.low_terrain_layer  = GridLayer((12000,6000),1)
 
-        self.political_layer_south    = GridLayer((600,300)   ,20)
-        self.high_terrain_layer_south = GridLayer((600,300)   ,20)
+        self.s_political_layer    = GridLayer((600,300),20)
+        self.s_high_terrain_layer = GridLayer((600,300),20)
         self.icons                    = {
             'locations': []
         }
+        # -
 
+        # < - LOADING DATA FROM FILE #LOAD
         loaded_data = np.load("shareddata/mapdata.npz",allow_pickle=True)
         self.loaded_id_grid             = loaded_data['a']
         self.loaded_id_grid_political   = loaded_data['b']
         self.loaded_id_grid_small       = loaded_data['c']
 
-        self.loaded_id_grid_south           = loaded_data['aa']
-        self.loaded_id_grid_political_south = loaded_data['bb']
-        self.icons_array                    = loaded_data['cc']
+        self.s_loaded_id_grid           = loaded_data['aa']
+        self.s_loaded_id_grid_political = loaded_data['bb']
+            # < south doesnt have more detail for now >
+
+        self.icons_array                = loaded_data['cc']
         self.icons = self.icons_array.item()
-
-        # image_path = "map_image_data/biomemap_south.png"
-        # image = Image.open(image_path).convert("RGB")
-
-        # image_array = np.array(image)
-
-        # def rgb_to_id(rgb):
-        #     return ID_MAP.get(tuple(rgb), 255) 
-
-        # self.loaded_id_grid_south = np.apply_along_axis(rgb_to_id, axis=-1, arr=image_array)
+        # -
 
         geographic_icon  = arcade.load_texture("icons/geo_map_icon.png")
         political_icon   = arcade.load_texture("icons/pol_map_icon.png")
         information_icon = arcade.load_texture("icons/inf_map_icon.png")
-
-        self.ui = arcade.gui.UIManager()
-        self.ui.enable()
 
         self.icon_data_anchor = self.ui.add(arcade.gui.UIAnchorLayout())
         self.icon_description = self.icon_data_anchor.add(
@@ -500,15 +513,11 @@ class Game(arcade.Window):
             self.selected_icon_id = 8
             self.mouse_click_anchor.visible = False
 
-        anchor = self.ui.add(arcade.gui.UIAnchorLayout())
         layer_buttons = anchor.add(
             arcade.gui.UIBoxLayout(vertical=True, space_between=4),
             anchor_x="right",
             anchor_y="top"
         )
-
-        self.toasts = anchor.add(arcade.gui.UIBoxLayout(space_between=2), anchor_x="left", anchor_y="top")
-        self.toasts.with_padding(all=10)
 
         bottom_anchor = self.ui.add(arcade.gui.UIAnchorLayout())
         pallete_buttons = bottom_anchor.add(
@@ -520,7 +529,7 @@ class Game(arcade.Window):
             anchor_y="bottom"
         )
 
-        center_anchor= self.ui.add(arcade.gui.UIAnchorLayout())
+        center_anchor = self.ui.add(arcade.gui.UIAnchorLayout())
         self.popupmenu_buttons = center_anchor.add(
             arcade.gui.UIBoxLayout(vertical=True, space_between=4),
             anchor_x="center",
@@ -685,35 +694,41 @@ class Game(arcade.Window):
         return True
 
     def on_notification_toast(self, message:str="", warn:bool=False, error:bool=False):
-        toast = Toast(message, duration=2)
+        toast = Toast(message, duration=4)
+
+        toast.update_font(
+            font_color=arcade.uicolor.BLACK,
+            font_size=12,
+            bold=True
+        )
+        toast.with_background(color=arcade.uicolor.BLUE_PETER_RIVER)
+
         if warn == True:
             toast.update_font(
-                font_color=arcade.uicolor.WHITE,
+                font_color=arcade.uicolor.BLACK,
                 font_size=12,
                 bold=True
             )
             toast.with_background(color=arcade.uicolor.YELLOW_ORANGE)
-        elif error == True:
+        if error == True:
             toast.update_font(
-                font_color=arcade.uicolor.WHITE,
+                font_color=arcade.uicolor.BLACK,
                 font_size=12,
                 bold=True
             )
             toast.with_background(color=arcade.uicolor.RED_POMEGRANATE)
-        else:
-            toast.update_font(
-                font_color=arcade.uicolor.WHITE,
-                font_size=12,
-                bold=True
-            )
-            toast.with_background(color=arcade.uicolor.BLUE_PETER_RIVER)
+
         toast.with_padding(all=10)
 
         self.toasts.add(toast)
 
     def on_clicked_save(self, event: SaveWorld):
-        np.savez_compressed("shareddata/mapdata.npz",a=self.loaded_id_grid,b=self.loaded_id_grid_political,c=self.loaded_id_grid_small,aa=self.loaded_id_grid_south,bb=self.loaded_id_grid_political_south,cc=np.array(self.icons))
-        print("saved data.")
+        #SAVE
+        try:
+            np.savez_compressed("shareddata/mapdata.npz",a=self.loaded_id_grid,b=self.loaded_id_grid_political,c=self.loaded_id_grid_small,aa=self.s_loaded_id_grid,bb=self.s_loaded_id_grid_political,cc=np.array(self.icons))
+            self.on_notification_toast("Saved map ...")
+        except:
+            self.on_notification_toast("Failed to save map ...",error=True)
 
     def background_loader(self, chunk_queue, result_queue, grid, id_grid):
         while True:
@@ -791,26 +806,6 @@ class Game(arcade.Window):
         )
 
     def setup(self):
-        self.terrain_scene = arcade.Scene()
-        self.political_scene=arcade.Scene()
-        self.info_scene = arcade.Scene()
-
-        self.chunk_request_queue = queue.Queue()
-        self.chunk_result_queue = queue.Queue()
-        self.requested_chunks = set()
-
-        self.camera = arcade.camera.Camera2D(); 
-        self.camera.position = (0,0)
-
-        self.terrain_scene.add_sprite_list("0") # <- water layer
-        self.terrain_scene.add_sprite_list("1") # <- terrain layer BIG
-        self.terrain_scene.add_sprite_list("2") # <- terrain layer SMALL
-
-        self.info_scene.add_sprite_list("0")
-        self.info_scene_list = []
-
-        self.political_scene.add_sprite_list("0")
-
         for x in range(600):
             for y in range(300):
                 self.terrain_scene.add_sprite(
@@ -860,8 +855,8 @@ class Game(arcade.Window):
             if x % 50 == 0:
                 print(f"+ Progress: {x} rows loaded...")
             for y in range(300):
-                id_value = self.loaded_id_grid_south[y][x]
-                political_value = self.loaded_id_grid_political_south[x][y]
+                id_value = self.s_loaded_id_grid[y][x]
+                political_value = self.s_loaded_id_grid_political[x][y]
                 political_rgb = REVERSED_POLITICAL_ID_MAP.get(political_value,(53,53,53))
                 pixel_rgb = REVERSED_ID_MAP.get(id_value,0)
                 world_x = x * 20
@@ -880,8 +875,8 @@ class Game(arcade.Window):
                 biome_column[y] = tile
                 politic_column[y] = political_tile
 
-            self.high_terrain_layer_south.grid[x] = biome_column
-            self.political_layer_south.grid[x] = biome_column
+            self.s_high_terrain_layer.grid[x] = biome_column
+            self.s_political_layer.grid[x] = biome_column
 
         for icon in self.icons['locations']:
             icon_path = str(ICON_ID_MAP.get(icon['id']))+"_64x64.png"
@@ -900,7 +895,6 @@ class Game(arcade.Window):
         self.resized_size = width, height
         print(f"resized {width} and {height}")
         return super().on_resize(width, height)
-
 
     def on_update(self, dt):
         self.camera.position += (self.camera_speed[0]*self.zoomed_speed_mod, self.camera_speed[1]*self.zoomed_speed_mod)
@@ -941,7 +935,6 @@ class Game(arcade.Window):
         for icon in self.info_scene_list:
             icon.scale = max(1.0-(self.camera.zoom/3),0.05)
 
-
     def on_draw(self):
         self.camera.use() 
         self.clear() 
@@ -980,7 +973,6 @@ class Game(arcade.Window):
                 arcade.draw_circle_outline(self.current_position_world[0],self.current_position_world[1],4,(255,255,255,255),1,0,4)
         
         self.ui.draw()
-
 
     def on_key_press(self, symbol, modifier):
         if symbol == arcade.key.R:
@@ -1026,7 +1018,6 @@ class Game(arcade.Window):
         if symbol == arcade.key.EQUAL or symbol == arcade.key.NUM_ADD:
             self.zoom_speed = 0.01
 
-
     def on_key_release(self, symbol, modifiers):
         if symbol == arcade.key.W or symbol == arcade.key.S or symbol == arcade.key.UP or symbol == arcade.key.DOWN:
             self.camera_speed = (self.camera_speed[0], 0.0)
@@ -1040,7 +1031,6 @@ class Game(arcade.Window):
 
         if symbol == arcade.key.KEY_0 or symbol == arcade.key.KEY_9:
             self.zoomed_speed_mod_adder = 0
-
 
     def on_mouse_press(self, x, y, button, modifiers):
         if button is arcade.MOUSE_BUTTON_LEFT:
@@ -1191,7 +1181,6 @@ class Game(arcade.Window):
                     self.selected_world_icon = None
                     self.icon_description.clear()
 
-
     def on_mouse_drag(self, x, y, dx, dy, buttons, modifiers):
         camera = self.camera
         zoom = camera.zoom #
@@ -1257,13 +1246,11 @@ class Game(arcade.Window):
                             index+=1
                     self.selected_world_icon.position = (world_x,world_y)
 
-
     def on_mouse_release(self, x, y, button, modifiers):
         if button is arcade.MOUSE_BUTTON_LEFT:
             self.last_pressed_world = None
             self.last_pressed_screen = None
             self.moving_the_icon = False
-
 
     def on_mouse_scroll(self, x, y, scroll_x, scroll_y):
         if self.editing_mode == False:
@@ -1286,7 +1273,6 @@ class Game(arcade.Window):
             else:
                 self.editing_mode_size += int(scroll_y)
         
-
     def on_mouse_motion(self, x, y, dx, dy):
         self.current_position_screen = (x, y)
         diff_fr_res = (SCREEN_SIZE[0]-self.resized_size[0])/2, (SCREEN_SIZE[1]-self.resized_size[1])/2
@@ -1301,11 +1287,11 @@ class Game(arcade.Window):
         tile_y = round(world_y / 20)
         self.last_interacted_tile = self.high_terrain_layer.__getitem__((tile_x, tile_y))
 
-
     def cleanup(self):
         self.chunk_result_queue.shutdown()
         self.chunk_request_queue.shutdown()
 
+# ---
 
 def main():
     game = Game(WIDTH, HEIGHT, "NATIONWIDER")

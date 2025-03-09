@@ -61,3 +61,16 @@
 
         #     self.high_terrain_layer.grid[x] = biome_column
         #     self.political_layer.grid[x] = politic_column
+
+        
+
+
+        # image_path = "map_image_data/biomemap_south.png"
+        # image = Image.open(image_path).convert("RGB")
+
+        # image_array = np.array(image)
+
+        # def rgb_to_id(rgb):
+        #     return ID_MAP.get(tuple(rgb), 255) 
+
+        # self.s_loaded_id_grid = np.apply_along_axis(rgb_to_id, axis=-1, arr=image_array)
