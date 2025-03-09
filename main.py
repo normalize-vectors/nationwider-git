@@ -133,7 +133,10 @@ ICON_ID_MAP = {
     5: "icons/structures/str_keep",
     6: "icons/structures/str_fortress",
     7: "icons/structures/str_bastion",
+    # -
     8: "icons/info/info_note",
+    # - 
+    9: "icons/units/vessel_template"
 }
 
 # ---
@@ -203,23 +206,12 @@ class UISaveButton(arcade.gui.UIFlatButton):
 
 # ---
 
-class PlaceIcon(arcade.Sprite):
-    def __init__(self, path_or_texture = None, scale = 1, center_x = 0, center_y = 0, angle = 0, icon_id = 0, text="", **kwargs):
+class Infocon(arcade.Sprite):
+    def __init__(self, path_or_texture = None, scale = 1, center_x = 0, center_y = 0, angle = 0, icon_id = 0, text="", people_count = 0, **kwargs):
         super().__init__(path_or_texture, scale, center_x, center_y, angle, **kwargs)
         self.icon_id = icon_id
         self.text = text
-
-class VesselIcon(arcade.Sprite):
-    def __init__(self, path_or_texture = None, scale = 1, center_x = 0, center_y = 0, angle = 0, icon_id = 0, troop_count = 0, **kwargs):
-        super().__init__(path_or_texture, scale, center_x, center_y, angle, **kwargs)
-        self.icon_id = icon_id
-        self.troop_count = troop_count
-
-class TroopIcon(arcade.Sprite):
-    def __init__(self, path_or_texture = None, scale = 1, center_x = 0, center_y = 0, angle = 0, icon_id = 0, troop_count = 0, **kwargs):
-        super().__init__(path_or_texture, scale, center_x, center_y, angle, **kwargs)
-        self.icon_id = icon_id
-        self.troop_count = troop_count
+        self.people_count = people_count
 
 # ---
 
@@ -458,6 +450,18 @@ class Game(arcade.Window):
             anchor_y="center"
         )
 
+        ship_icon = arcade.load_texture(f"{ICON_ID_MAP.get(9)}_64x64.png")
+        add_ship = arcade.gui.UIFlatButton(text="", width=64, height=64)
+        add_ship.add(
+            child=arcade.gui.UIImage(
+                texture=ship_icon,
+                width =64,
+                height=64,
+            ),
+            anchor_x="center",
+            anchor_y="center"
+        )
+
         self.menu_options.add(add_str_village,  0, 0)
         self.menu_options.add(add_str_town,     1, 0)
         self.menu_options.add(add_str_city,     2, 0)
@@ -467,51 +471,47 @@ class Game(arcade.Window):
         self.menu_options.add(add_str_fortress, 1, 1)
         self.menu_options.add(add_str_bastion,  2, 1)
         self.menu_options.add(add_info_note,    3, 1)
+        self.menu_options.add(add_ship,         4, 1)
 
         @add_str_village.event
         def on_click(event: arcade.gui.UIOnClickEvent):
             self.selected_icon_id = 0
-            self.mouse_click_anchor.visible = False
 
         @add_str_town.event
         def on_click(event: arcade.gui.UIOnClickEvent):
             self.selected_icon_id = 1
-            self.mouse_click_anchor.visible = False
 
         @add_str_city.event
         def on_click(event: arcade.gui.UIOnClickEvent):
             self.selected_icon_id = 2
-            self.mouse_click_anchor.visible = False
 
         @add_str_metro.event
         def on_click(event: arcade.gui.UIOnClickEvent):
             self.selected_icon_id = 3
-            self.mouse_click_anchor.visible = False
 
         @add_str_outpost.event
         def on_click(event: arcade.gui.UIOnClickEvent):
             self.selected_icon_id = 4
-            self.mouse_click_anchor.visible = False
 
         @add_str_keep.event
         def on_click(event: arcade.gui.UIOnClickEvent):
             self.selected_icon_id = 5
-            self.mouse_click_anchor.visible = False
 
         @add_str_fortress.event
         def on_click(event: arcade.gui.UIOnClickEvent):
             self.selected_icon_id = 6
-            self.mouse_click_anchor.visible = False
 
         @add_str_bastion.event
         def on_click(event: arcade.gui.UIOnClickEvent):
             self.selected_icon_id = 7
-            self.mouse_click_anchor.visible = False
 
         @add_info_note.event
         def on_click(event: arcade.gui.UIOnClickEvent):
             self.selected_icon_id = 8
-            self.mouse_click_anchor.visible = False
+
+        @add_ship.event
+        def on_click(event: arcade.gui.UIOnClickEvent):
+            self.selected_icon_id = 9
 
         layer_buttons = anchor.add(
             arcade.gui.UIBoxLayout(vertical=True, space_between=4),
@@ -880,7 +880,14 @@ class Game(arcade.Window):
 
         for icon in self.icons['locations']:
             icon_path = str(ICON_ID_MAP.get(icon['id']))+"_64x64.png"
-            icon = PlaceIcon(icon_path,1,icon['x'],icon['y'],0,icon['id'],icon['text'])
+            icon = Infocon(icon_path,1,
+                           icon['x'],
+                           icon['y'],
+                           0.0,
+                           icon['id'],
+                           icon['text'],
+                           icon['people_count']
+                        )
             self.info_scene.add_sprite("0",icon)
             self.info_scene_list.append(icon)
 
@@ -949,7 +956,7 @@ class Game(arcade.Window):
         self.info_scene.draw(pixelated=True)
 
         if self.selected_world_icon:
-            arcade.draw_circle_outline(self.selected_world_icon.position[0],self.selected_world_icon.position[1],max(32-(self.camera.zoom),8),(255,255,255,255),1,0,5)
+            arcade.draw_circle_outline(self.selected_world_icon.position[0],self.selected_world_icon.position[1],max(32-(self.camera.zoom*3),8),(255,255,255,255),1,0,6)
 
         if self.editing_mode == False:
             if self.moving_the_icon == False:
@@ -975,12 +982,6 @@ class Game(arcade.Window):
         self.ui.draw()
 
     def on_key_press(self, symbol, modifier):
-        if symbol == arcade.key.R:
-            print(self.requested_chunks)
-            self.requested_chunks = set()
-            print(self.requested_chunks)
-            print(f"+ Clearing generated chunks ...")
-
         if symbol   == arcade.key.W or symbol == arcade.key.UP:
             self.camera_speed = (self.camera_speed[0], 10.0)
         elif symbol == arcade.key.A or symbol == arcade.key.LEFT:
@@ -1000,7 +1001,7 @@ class Game(arcade.Window):
 
         if symbol   == arcade.key.SLASH:
             #if self.editing_mode == True:
-            self.mouse_click_anchor.visible = True
+            self.mouse_click_anchor.visible = not self.mouse_click_anchor.visible
 
         if symbol   == arcade.key.ESCAPE:
             self.popupmenu_buttons.visible = not self.popupmenu_buttons.visible
@@ -1044,57 +1045,57 @@ class Game(arcade.Window):
             self.last_pressed_world = (world_x, world_y)
 
             if self.editing_mode == True:
+                list_of_tiles = np.zeros((self.editing_mode_size,self.editing_mode_size), dtype=object)
+                list_of_tile_positions = []
+
+                half_size = self.editing_mode_size // 2
+                radius = half_size
+
+                for x_offset in range(self.editing_mode_size):
+                    for y_offset in range(self.editing_mode_size):
+                        x_ = world_x + (x_offset - half_size)
+                        y_ = world_y + (y_offset - half_size)
+
+                        distance = ((x_offset - half_size) + 0.5) ** 2 + ((y_offset - half_size) + 0.5) ** 2
+
+                        if not self.editing_mode_size == 1:
+                            if distance <= (radius + 0.5) ** 2:
+                                list_of_tiles[x_offset, y_offset] = self.low_terrain_layer.__getitem__((round(x_ + 9.5), round(y_ + 9.5)))
+                                list_of_tile_positions.append((round(x_ + 9.5), round(y_ + 9.5)))
+                            else:
+                                list_of_tiles[x_offset, y_offset] = None 
+                        else:
+                            list_of_tiles[x_offset, y_offset] = self.low_terrain_layer.__getitem__((round(x_ + 9.5), round(y_ + 9.5)))
+                            list_of_tile_positions.append((round(x_ + 9.5), round(y_ + 9.5)))
+
+                for x_ in range(self.editing_mode_size):
+                    for y_ in range(self.editing_mode_size):
+                        if not list_of_tiles[x_][y_] is None:
+                            pixel_rgba = REVERSED_ID_MAP.get(self.selected_lower_id,(0,0,0)) + (255,)
+                            list_of_tiles[x_][y_].color = pixel_rgba
+                        else:
+                            print(f"no tiles returned to selection ...")
+                
+                print(list_of_tile_positions)
+                if not list_of_tile_positions is None:
+                    for tile in list_of_tile_positions:
+                        print(f"tile[0] {tile[0]} + tile[1] {tile[1]}")
+                        self.loaded_id_grid_small[tile[0],tile[1]] = self.selected_lower_id
+
+            else:
                 if self.selected_icon_id:
                     icon_path = str(ICON_ID_MAP.get(self.selected_icon_id))+"_64x64.png"
-                    icon = PlaceIcon(icon_path,1,world_x,world_y,0,self.selected_icon_id,"")
+                    icon = Infocon(icon_path,1,world_x,world_y,0.0,self.selected_icon_id,"",0)
                     self.info_scene.add_sprite("0",icon)
                     self.info_scene_list.append(icon)
                     self.icons["locations"].append({
                         "id": self.selected_icon_id,
                         "x": round(world_x),
                         "y": round(world_y),
-                        "text": ""
+                        "text": "",
+                        "people_count": 0
                     })
                     self.selected_icon_id = None
-                else:
-                    list_of_tiles = np.zeros((self.editing_mode_size,self.editing_mode_size), dtype=object)
-                    list_of_tile_positions = []
-
-                    half_size = self.editing_mode_size // 2
-                    radius = half_size
-
-                    for x_offset in range(self.editing_mode_size):
-                        for y_offset in range(self.editing_mode_size):
-                            x_ = world_x + (x_offset - half_size)
-                            y_ = world_y + (y_offset - half_size)
-
-                            distance = ((x_offset - half_size) + 0.5) ** 2 + ((y_offset - half_size) + 0.5) ** 2
-
-                            if not self.editing_mode_size == 1:
-                                if distance <= (radius + 0.5) ** 2:
-                                    list_of_tiles[x_offset, y_offset] = self.low_terrain_layer.__getitem__((round(x_ + 9.5), round(y_ + 9.5)))
-                                    list_of_tile_positions.append((round(x_ + 9.5), round(y_ + 9.5)))
-                                else:
-                                    list_of_tiles[x_offset, y_offset] = None 
-                            else:
-                                list_of_tiles[x_offset, y_offset] = self.low_terrain_layer.__getitem__((round(x_ + 9.5), round(y_ + 9.5)))
-                                list_of_tile_positions.append((round(x_ + 9.5), round(y_ + 9.5)))
-
-                    for x_ in range(self.editing_mode_size):
-                        for y_ in range(self.editing_mode_size):
-                            if not list_of_tiles[x_][y_] is None:
-                                pixel_rgba = REVERSED_ID_MAP.get(self.selected_lower_id,(0,0,0)) + (255,)
-                                list_of_tiles[x_][y_].color = pixel_rgba
-                            else:
-                                print(f"no tiles returned to selection ...")
-                    
-                    print(list_of_tile_positions)
-                    if not list_of_tile_positions is None:
-                        for tile in list_of_tile_positions:
-                            print(f"tile[0] {tile[0]} + tile[1] {tile[1]}")
-                            self.loaded_id_grid_small[tile[0],tile[1]] = self.selected_lower_id
-
-            else:
                 nearby_icon = self.find_icon_near(world_x, world_y, radius=10)
                 if nearby_icon:
                     print(f"Found {nearby_icon}")
