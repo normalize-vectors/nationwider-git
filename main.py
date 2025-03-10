@@ -207,11 +207,12 @@ class UISaveButton(arcade.gui.UIFlatButton):
 # ---
 
 class Infocon(arcade.Sprite):
-    def __init__(self, path_or_texture = None, scale = 1, center_x = 0, center_y = 0, angle = 0, icon_id = 0, text="", people_count = 0, **kwargs):
+    def __init__(self, path_or_texture = None, scale = 1, center_x = 0, center_y = 0, angle = 0, icon_id = 0, text="", people_count = 0, angle_rot = 0, **kwargs):
         super().__init__(path_or_texture, scale, center_x, center_y, angle, **kwargs)
         self.icon_id = icon_id
         self.text = text
         self.people_count = people_count
+        self.angle_rot = angle_rot
 
 # ---
 
@@ -240,6 +241,7 @@ class GridLayer():
 class Game(arcade.Window):
     def __init__(self, width, height, title):
         super().__init__(width, height, title, resizable=True)
+        #INIT
         self.camera                 = arcade.camera.Camera2D(); 
         self.camera.position        = (0,0)
         self.resized_size           = 1920, 1080
@@ -259,9 +261,12 @@ class Game(arcade.Window):
         self.editing_mode           = False
         self.editing_mode_size      = 4
 
+        self.previous_angle         = 0
+
         self.selected_icon_id       = None
         self.selected_world_icon    = None
         self.moving_the_icon        = False
+        self.rotating_the_icon      = False
 
         self.terrain_scene          = arcade.Scene()
         self.political_scene        = arcade.Scene()
@@ -320,11 +325,11 @@ class Game(arcade.Window):
         self.icon_data_anchor = self.ui.add(arcade.gui.UIAnchorLayout())
         self.icon_description = self.icon_data_anchor.add(
             arcade.gui.UIBoxLayout(
-                vertical=True,
-                space_between=4
+                vertical=False,
+                space_between=2
             ),
-            anchor_x="right",
-            anchor_y="center"
+            anchor_x="center",
+            anchor_y="bottom"
         )
         self.move_button_icon = arcade.load_texture("icons/move_icon.png")
         self.remove_button_icon = arcade.load_texture("icons/remove_icon.png")
@@ -335,183 +340,35 @@ class Game(arcade.Window):
             arcade.gui.UIGridLayout(
                 column_count=5,
                 row_count=5,
-                vertical_spacing=4,
-                horizontal_spacing=4
-                ).with_background(color=arcade.types.Color(10,10,10,100)),
+                vertical_spacing=1,
+                horizontal_spacing=1
+                ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(color=arcade.types.Color(30,30,30,255)),
             anchor_x="center",
             anchor_y="center"
         )
 
-        village_icon = arcade.load_texture(f"{ICON_ID_MAP.get(0)}_64x64.png")
-        add_str_village = arcade.gui.UIFlatButton(text="", width=64, height=64)
-        add_str_village.add(
-            child=arcade.gui.UIImage(
-                texture=village_icon,
-                width =64,
-                height=64,
-            ),
-            anchor_x="center",
-            anchor_y="center"
-        )
+        icon_names = [
+            "village", "town", "city", "metro", "outpost",
+            "keep", "fortress", "bastion", "note", "ship"
+        ]
 
-        town_icon = arcade.load_texture(f"{ICON_ID_MAP.get(1)}_64x64.png")
-        add_str_town = arcade.gui.UIFlatButton(text="", width=64, height=64)
-        add_str_town.add(
-            child=arcade.gui.UIImage(
-                texture=town_icon,
-                width =64,
-                height=64,
-            ),
-            anchor_x="center",
-            anchor_y="center"
-        )
+        self.buttons = []
 
-        city_icon = arcade.load_texture(f"{ICON_ID_MAP.get(2)}_64x64.png")
-        add_str_city = arcade.gui.UIFlatButton(text="", width=64, height=64)
-        add_str_city.add(
-            child=arcade.gui.UIImage(
-                texture=city_icon,
-                width =64,
-                height=64,
-            ),
-            anchor_x="center",
-            anchor_y="center"
-        )
+        for idx, name in enumerate(icon_names):
+            icon_texture = arcade.load_texture(f"{ICON_ID_MAP.get(idx)}_64x64.png")
+            button = arcade.gui.UIFlatButton(text="", width=64, height=64)
+            button.add(
+                child=arcade.gui.UIImage(texture=icon_texture, width=64, height=64),
+                anchor_x="center",
+                anchor_y="center"
+            )
+            self.menu_options.add(button, idx % 5, idx // 5)
+            self.buttons.append(button)
 
-        metro_icon = arcade.load_texture(f"{ICON_ID_MAP.get(3)}_64x64.png")
-        add_str_metro = arcade.gui.UIFlatButton(text="", width=64, height=64)
-        add_str_metro.add(
-            child=arcade.gui.UIImage(
-                texture=metro_icon,
-                width =64,
-                height=64,
-            ),
-            anchor_x="center",
-            anchor_y="center"
-        )
-
-        outpost_icon = arcade.load_texture(f"{ICON_ID_MAP.get(4)}_64x64.png")
-        add_str_outpost = arcade.gui.UIFlatButton(text="", width=64, height=64)
-        add_str_outpost.add(
-            child=arcade.gui.UIImage(
-                texture=outpost_icon,
-                width =64,
-                height=64,
-            ),
-            anchor_x="center",
-            anchor_y="center"
-        )
-
-        keep_icon = arcade.load_texture(f"{ICON_ID_MAP.get(5)}_64x64.png")
-        add_str_keep = arcade.gui.UIFlatButton(text="", width=64, height=64)
-        add_str_keep.add(
-            child=arcade.gui.UIImage(
-                texture=keep_icon,
-                width =64,
-                height=64,
-            ),
-            anchor_x="center",
-            anchor_y="center"
-        )
-
-        fortress_icon = arcade.load_texture(f"{ICON_ID_MAP.get(6)}_64x64.png")
-        add_str_fortress = arcade.gui.UIFlatButton(text="", width=64, height=64)
-        add_str_fortress.add(
-            child=arcade.gui.UIImage(
-                texture=fortress_icon,
-                width =64,
-                height=64,
-            ),
-            anchor_x="center",
-            anchor_y="center"
-        )
-
-        bastion_icon = arcade.load_texture(f"{ICON_ID_MAP.get(7)}_64x64.png")
-        add_str_bastion = arcade.gui.UIFlatButton(text="", width=64, height=64)
-        add_str_bastion.add(
-            child=arcade.gui.UIImage(
-                texture=bastion_icon,
-                width =64,
-                height=64,
-            ),
-            anchor_x="center",
-            anchor_y="center"
-        )
-
-        note_icon = arcade.load_texture(f"{ICON_ID_MAP.get(8)}_64x64.png")
-        add_info_note = arcade.gui.UIFlatButton(text="", width=64, height=64)
-        add_info_note.add(
-            child=arcade.gui.UIImage(
-                texture=note_icon,
-                width =64,
-                height=64,
-            ),
-            anchor_x="center",
-            anchor_y="center"
-        )
-
-        ship_icon = arcade.load_texture(f"{ICON_ID_MAP.get(9)}_64x64.png")
-        add_ship = arcade.gui.UIFlatButton(text="", width=64, height=64)
-        add_ship.add(
-            child=arcade.gui.UIImage(
-                texture=ship_icon,
-                width =64,
-                height=64,
-            ),
-            anchor_x="center",
-            anchor_y="center"
-        )
-
-        self.menu_options.add(add_str_village,  0, 0)
-        self.menu_options.add(add_str_town,     1, 0)
-        self.menu_options.add(add_str_city,     2, 0)
-        self.menu_options.add(add_str_metro,    3, 0)
-        self.menu_options.add(add_str_outpost,  4, 0)
-        self.menu_options.add(add_str_keep,     0, 1)
-        self.menu_options.add(add_str_fortress, 1, 1)
-        self.menu_options.add(add_str_bastion,  2, 1)
-        self.menu_options.add(add_info_note,    3, 1)
-        self.menu_options.add(add_ship,         4, 1)
-
-        @add_str_village.event
-        def on_click(event: arcade.gui.UIOnClickEvent):
-            self.selected_icon_id = 0
-
-        @add_str_town.event
-        def on_click(event: arcade.gui.UIOnClickEvent):
-            self.selected_icon_id = 1
-
-        @add_str_city.event
-        def on_click(event: arcade.gui.UIOnClickEvent):
-            self.selected_icon_id = 2
-
-        @add_str_metro.event
-        def on_click(event: arcade.gui.UIOnClickEvent):
-            self.selected_icon_id = 3
-
-        @add_str_outpost.event
-        def on_click(event: arcade.gui.UIOnClickEvent):
-            self.selected_icon_id = 4
-
-        @add_str_keep.event
-        def on_click(event: arcade.gui.UIOnClickEvent):
-            self.selected_icon_id = 5
-
-        @add_str_fortress.event
-        def on_click(event: arcade.gui.UIOnClickEvent):
-            self.selected_icon_id = 6
-
-        @add_str_bastion.event
-        def on_click(event: arcade.gui.UIOnClickEvent):
-            self.selected_icon_id = 7
-
-        @add_info_note.event
-        def on_click(event: arcade.gui.UIOnClickEvent):
-            self.selected_icon_id = 8
-
-        @add_ship.event
-        def on_click(event: arcade.gui.UIOnClickEvent):
-            self.selected_icon_id = 9
+            @button.event
+            def on_click(event: arcade.gui.UIOnClickEvent, idx=idx, name=name):
+                self.selected_icon_id = idx
+                self.on_notification_toast(f"Selected {name}")
 
         layer_buttons = anchor.add(
             arcade.gui.UIBoxLayout(vertical=True, space_between=4),
@@ -694,7 +551,7 @@ class Game(arcade.Window):
         return True
 
     def on_notification_toast(self, message:str="", warn:bool=False, error:bool=False):
-        toast = Toast(message, duration=4)
+        toast = Toast(message, duration=2)
 
         toast.update_font(
             font_color=arcade.uicolor.BLACK,
@@ -886,8 +743,10 @@ class Game(arcade.Window):
                            0.0,
                            icon['id'],
                            icon['text'],
-                           icon['people_count']
+                           icon['people_count'],
+                           icon['angle_rot']
                         )
+            icon.angle = self.previous_angle
             self.info_scene.add_sprite("0",icon)
             self.info_scene_list.append(icon)
 
@@ -1093,20 +952,21 @@ class Game(arcade.Window):
                         "x": round(world_x),
                         "y": round(world_y),
                         "text": "",
-                        "people_count": 0
+                        "people_count": 0,
+                        "angle_rot": 0
                     })
                     self.selected_icon_id = None
-                nearby_icon = self.find_icon_near(world_x, world_y, radius=10)
+                nearby_icon = self.find_icon_near(world_x, world_y, radius=24)
                 if nearby_icon:
                     print(f"Found {nearby_icon}")
                     self.selected_world_icon = nearby_icon
                     self.icon_description.clear()
                     label = arcade.gui.UITextArea(
-                        text=f"Info:\n{nearby_icon.text}",
+                        text=f"Info: {nearby_icon.text}",
                         multiline=True,
-                        width=64,
-                        height=128
-                    ).with_background(color=arcade.types.Color(20,20,20,255)).with_border(width=1,color=arcade.types.Color(40,40,40,255))
+                        width=256,
+                        height=64
+                    ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
                     move_button = arcade.gui.UIFlatButton(text="", width=64, height=64)
                     move_button.add(
                         child=arcade.gui.UIImage(
@@ -1127,13 +987,24 @@ class Game(arcade.Window):
                         anchor_x="center",
                         anchor_y="center"
                     )
+                    rotate_button = arcade.gui.UIFlatButton(text="", width=64, height=64)
+                    rotate_button.add(
+                        child=arcade.gui.UIImage(
+                            texture=self.remove_button_icon,
+                            width =64,
+                            height=64,
+                        ),
+                        anchor_x="center",
+                        anchor_y="center"
+                    )
+
                     edit_button_icon = arcade.load_texture("icons/edit_icon.png")
-                    edit_text_button = arcade.gui.UIFlatButton(text="",width=16,height=16)
+                    edit_text_button = arcade.gui.UIFlatButton(text="",width=32,height=32)
                     edit_text_button.add(
                         child=arcade.gui.UIImage(
                             texture=edit_button_icon,
                             width =8,
-                            height=8,
+                            height=8
                         ),
                         anchor_x="center",
                         anchor_y="center"
@@ -1142,8 +1013,8 @@ class Game(arcade.Window):
                     def on_click(event: arcade.gui.UIOnClickEvent):
                         text_input = self.icon_description.add(
                             arcade.gui.UIInputText(
-                                width=200,
-                                height=64,
+                                width=128,
+                                height=32,
                                 font_size=12,
                                 border_color=arcade.uicolor.GRAY_CONCRETE,
                                 border_width=2
@@ -1153,6 +1024,10 @@ class Game(arcade.Window):
                         @text_input.event("on_change")
                         def on_text_change(event: arcade.gui.UIOnChangeEvent):
                             nearby_icon.text = event.new_value
+
+                    @rotate_button.event
+                    def on_click(event: arcade.gui.UIOnClickEvent):
+                        self.rotating_the_icon = not self.rotating_the_icon
 
                     @move_button.event
                     def on_click(event: arcade.gui.UIOnClickEvent):
@@ -1176,6 +1051,7 @@ class Game(arcade.Window):
                     self.icon_description.add(label)
                     self.icon_description.add(move_button)
                     self.icon_description.add(remove_button)
+                    self.icon_description.add(rotate_button)
                     self.icon_description.add(edit_text_button)
                 else:
                     print("No icons found nearby.")
@@ -1198,6 +1074,22 @@ class Game(arcade.Window):
             # x -> origin point changed to the center with '/2' -> zoom amount -> camera offset 
 
             self.current_position_world = (world_x, world_y)
+
+            if self.rotating_the_icon:
+                try:
+                    current_angle = math.atan2(world_x - self.selected_world_icon.position[0], world_y - self.selected_world_icon.position[1])
+                    delta_angle = ((current_angle - self.previous_angle + math.pi) % (2 * math.pi)) - math.pi
+                    self.selected_world_icon.angle += delta_angle*64
+                    self.previous_angle = current_angle
+
+                    index = 0
+                    for icon in self.icons['locations']:
+                        if icon['x'] == self.selected_world_icon.position[0] and icon['y'] == self.selected_world_icon.position[1]:
+                            self.icons['locations']['angle_rot'] += delta_angle*64
+                        else:
+                            index+=1
+                except:
+                    self.on_notification_toast("Couldn't rotate [cannot find icon] ...", warn=True)
 
             if self.editing_mode == True:
                 list_of_tiles = np.zeros((self.editing_mode_size,self.editing_mode_size), dtype=object)
