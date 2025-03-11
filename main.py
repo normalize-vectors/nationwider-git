@@ -135,8 +135,18 @@ ICON_ID_MAP = {
     7: "icons/structures/str_bastion",
     # -
     8: "icons/info/info_note",
+    9: "icons/info/info_line",
     # - 
-    9: "icons/units/vessel_template"
+    10:"icons/units/vessel_raft",
+    11:"icons/units/vessel_cog",
+    12:"icons/units/vessel_yawl",
+    13:"icons/units/vessel_brig",
+    14:"icons/units/vessel_corvette",
+    15:"icons/units/vessel_frigate",
+    16:"icons/units/vessel_cruiser",
+    17:"icons/units/vessel_battleship",
+    18:"icons/units/vessel_dreadnought",
+    19:"icons/units/vessel_carrier",
 }
 
 # ---
@@ -207,12 +217,13 @@ class UISaveButton(arcade.gui.UIFlatButton):
 # ---
 
 class Infocon(arcade.Sprite):
-    def __init__(self, path_or_texture = None, scale = 1, center_x = 0, center_y = 0, angle = 0, icon_id = 0, text="", people_count = 0, angle_rot = 0, **kwargs):
+    def __init__(self, path_or_texture = None, scale = 1, center_x = 0, center_y = 0, angle = 0, icon_id = 0, text="", people_count = 0, angle_rot = 0, typename = "", **kwargs):
         super().__init__(path_or_texture, scale, center_x, center_y, angle, **kwargs)
         self.icon_id = icon_id
         self.text = text
         self.people_count = people_count
         self.angle_rot = angle_rot
+        self.typename = typename
 
 # ---
 
@@ -331,8 +342,6 @@ class Game(arcade.Window):
             anchor_x="center",
             anchor_y="bottom"
         )
-        self.move_button_icon = arcade.load_texture("icons/move_icon.png")
-        self.remove_button_icon = arcade.load_texture("icons/remove_icon.png")
 
         self.mouse_click_anchor = self.ui.add(arcade.gui.UIAnchorLayout())
         self.mouse_click_anchor.visible = False
@@ -349,13 +358,15 @@ class Game(arcade.Window):
 
         icon_names = [
             "village", "town", "city", "metro", "outpost",
-            "keep", "fortress", "bastion", "note", "ship"
+            "keep", "fortress", "bastion", "note", "line",
+            "raft", "cog", "yawl", "brig", "corvette",
+            "frigate", "cruiser", "battleship", "dreadnought", "carrier"
         ]
 
         self.buttons = []
 
         for idx, name in enumerate(icon_names):
-            icon_texture = arcade.load_texture(f"{ICON_ID_MAP.get(idx)}_64x64.png")
+            icon_texture = arcade.load_texture(f"{ICON_ID_MAP.get(idx)}.png")
             button = arcade.gui.UIFlatButton(text="", width=64, height=64)
             button.add(
                 child=arcade.gui.UIImage(texture=icon_texture, width=64, height=64),
@@ -736,19 +747,20 @@ class Game(arcade.Window):
             self.s_political_layer.grid[x] = biome_column
 
         for icon in self.icons['locations']:
-            icon_path = str(ICON_ID_MAP.get(icon['id']))+"_64x64.png"
-            icon = Infocon(icon_path,1,
+            icon_path = str(ICON_ID_MAP.get(icon['id']))+".png"
+            icon_object = Infocon(icon_path,1,
                            icon['x'],
                            icon['y'],
                            0.0,
                            icon['id'],
                            icon['text'],
                            icon['people_count'],
-                           icon['angle_rot']
+                           icon['angle_rot'],
+                           icon['typename']
                         )
-            icon.angle = self.previous_angle
-            self.info_scene.add_sprite("0",icon)
-            self.info_scene_list.append(icon)
+            icon_object.angle = icon['angle_rot']
+            self.info_scene.add_sprite("0",icon_object)
+            self.info_scene_list.append(icon_object)
 
         loader_thread = threading.Thread(
             target=self.background_loader, 
@@ -815,7 +827,12 @@ class Game(arcade.Window):
         self.info_scene.draw(pixelated=True)
 
         if self.selected_world_icon:
-            arcade.draw_circle_outline(self.selected_world_icon.position[0],self.selected_world_icon.position[1],max(32-(self.camera.zoom*3),8),(255,255,255,255),1,0,6)
+            if self.moving_the_icon:
+                arcade.draw_circle_outline(self.selected_world_icon.position[0],self.selected_world_icon.position[1],max(32-(self.camera.zoom*3),8),(255,255,255,255),1,0,4)
+            elif self.rotating_the_icon:
+                arcade.draw_circle_outline(self.selected_world_icon.position[0],self.selected_world_icon.position[1],max(32-(self.camera.zoom*3),8),(255,255,255,255),1,0)
+            else:
+                arcade.draw_circle_outline(self.selected_world_icon.position[0],self.selected_world_icon.position[1],max(32-(self.camera.zoom*3),8),(255,255,255,255),1,0,6)
 
         if self.editing_mode == False:
             if self.moving_the_icon == False:
@@ -835,8 +852,17 @@ class Game(arcade.Window):
                 crosshair_size = (self.editing_mode_size/8)
                 crosshair_sprite = arcade.Sprite("crosshair.png",(crosshair_size,crosshair_size),self.current_position_world[0],self.current_position_world[1],0)
                 arcade.draw_sprite(crosshair_sprite,pixelated=True)
+                arcade.draw_lrbt_rectangle_outline(round(self.current_position_world[0]-0.5),round(self.current_position_world[0]+0.5),round(self.current_position_world[1]-0.5),round(self.current_position_world[1]+0.5),color=(255,255,255,255),border_width=0.1)
             else:
                 arcade.draw_circle_outline(self.current_position_world[0],self.current_position_world[1],4,(255,255,255,255),1,0,4)
+
+        # if self.current_position_world:
+        #     nearby_icon = self.find_icon_near(self.current_position_world[0], self.current_position_world[1], radius=32)
+        #     if nearby_icon:
+        #         if self.current_position_world:
+        #             #arcade.draw_text(nearby_icon.typename,nearby_icon.position[0],nearby_icon.position[1]+16,arcade.color.WHITE,9,width=64,multiline=True,anchor_x="center",)
+        #             text = arcade.Text(nearby_icon.typename,nearby_icon.position[0],nearby_icon.position[1]+16,arcade.color.WHITE,12,64,"center","calibri",False,False,"center","top",True,0,None,None,0)
+        #             text.draw()
         
         self.ui.draw()
 
@@ -850,6 +876,18 @@ class Game(arcade.Window):
         elif symbol == arcade.key.D or symbol == arcade.key.RIGHT:
             self.camera_speed = (10.0, self.camera_speed[1])
 
+        if symbol   == arcade.key.KEY_1:
+            icons_spritelist = self.info_scene.get_sprite_list("0")
+            icons_spritelist.visible = not icons_spritelist.visible
+        if symbol   == arcade.key.KEY_2:
+            political_spritelist = self.political_scene.get_sprite_list("0")
+            political_spritelist.visible = not political_spritelist.visible
+            self.political_background = not self.political_background
+        if symbol   == arcade.key.KEY_3:
+            biome_spritelist = self.terrain_scene.get_sprite_list("1")
+            biome_spritelist_2=self.terrain_scene.get_sprite_list("2")
+            biome_spritelist.visible = not biome_spritelist.visible
+            biome_spritelist_2.visible = not biome_spritelist_2.visible
         if symbol   == arcade.key.KEY_0:
             self.zoomed_speed_mod_adder = 0.01
         if symbol   == arcade.key.KEY_9:
@@ -857,24 +895,23 @@ class Game(arcade.Window):
 
         if symbol   == arcade.key.O:
             self.editing_mode = not self.editing_mode
+        if symbol   == arcade.key.F:
+            self.set_fullscreen(not self.fullscreen)
+        if symbol   == arcade.key.M:
+            self.moving_the_icon = not self.moving_the_icon
+        if symbol   == arcade.key.R:
+            self.rotating_the_icon = not self.rotating_the_icon
 
         if symbol   == arcade.key.SLASH:
-            #if self.editing_mode == True:
             self.mouse_click_anchor.visible = not self.mouse_click_anchor.visible
-
         if symbol   == arcade.key.ESCAPE:
             self.popupmenu_buttons.visible = not self.popupmenu_buttons.visible
-        
-        if symbol == arcade.key.F:
-            # User hits f. Flip between full and not full screen.
-            self.set_fullscreen(not self.fullscreen)
         
         if symbol == arcade.key.MINUS or symbol == arcade.key.NUM_SUBTRACT:
             if self.camera.zoom >= 0.1 and self.camera.zoom <= 0.125:
                 pass
             else:
                 self.zoom_speed = -0.01
-
         if symbol == arcade.key.EQUAL or symbol == arcade.key.NUM_ADD:
             self.zoom_speed = 0.01
 
@@ -940,11 +977,10 @@ class Game(arcade.Window):
                     for tile in list_of_tile_positions:
                         print(f"tile[0] {tile[0]} + tile[1] {tile[1]}")
                         self.loaded_id_grid_small[tile[0],tile[1]] = self.selected_lower_id
-
             else:
-                if self.selected_icon_id:
-                    icon_path = str(ICON_ID_MAP.get(self.selected_icon_id))+"_64x64.png"
-                    icon = Infocon(icon_path,1,world_x,world_y,0.0,self.selected_icon_id,"",0)
+                if self.selected_icon_id or self.selected_icon_id == 0:
+                    icon_path = str(ICON_ID_MAP.get(self.selected_icon_id))+".png"
+                    icon = Infocon(icon_path,1,world_x,world_y,0.0,self.selected_icon_id,"",0,0,ICON_ID_MAP.get(self.selected_icon_id))
                     self.info_scene.add_sprite("0",icon)
                     self.info_scene_list.append(icon)
                     self.icons["locations"].append({
@@ -953,10 +989,11 @@ class Game(arcade.Window):
                         "y": round(world_y),
                         "text": "",
                         "people_count": 0,
-                        "angle_rot": 0
+                        "angle_rot": 0,
+                        "typename": ICON_ID_MAP.get(self.selected_icon_id)
                     })
                     self.selected_icon_id = None
-                nearby_icon = self.find_icon_near(world_x, world_y, radius=24)
+                nearby_icon = self.find_icon_near(world_x, world_y, radius=10)
                 if nearby_icon:
                     print(f"Found {nearby_icon}")
                     self.selected_world_icon = nearby_icon
@@ -967,10 +1004,15 @@ class Game(arcade.Window):
                         width=256,
                         height=64
                     ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
+                    move_button_icon = arcade.load_texture("icons/move_icon.png")
+                    remove_button_icon = arcade.load_texture("icons/remove_icon.png")
+                    rotate_button_icon = arcade.load_texture("icons/rotate_icon.png")
+                    rotate_reset_button_icon = arcade.load_texture("icons/rotate_reset_icon.png")
+                    edit_button_icon = arcade.load_texture("icons/edit_icon.png")
                     move_button = arcade.gui.UIFlatButton(text="", width=64, height=64)
                     move_button.add(
                         child=arcade.gui.UIImage(
-                            texture=self.move_button_icon,
+                            texture=move_button_icon,
                             width =64,
                             height=64,
                         ),
@@ -980,7 +1022,7 @@ class Game(arcade.Window):
                     remove_button = arcade.gui.UIFlatButton(text="", width=64, height=64)
                     remove_button.add(
                         child=arcade.gui.UIImage(
-                            texture=self.remove_button_icon,
+                            texture=remove_button_icon,
                             width =64,
                             height=64,
                         ),
@@ -990,15 +1032,23 @@ class Game(arcade.Window):
                     rotate_button = arcade.gui.UIFlatButton(text="", width=64, height=64)
                     rotate_button.add(
                         child=arcade.gui.UIImage(
-                            texture=self.remove_button_icon,
+                            texture=rotate_button_icon,
                             width =64,
                             height=64,
                         ),
                         anchor_x="center",
                         anchor_y="center"
                     )
-
-                    edit_button_icon = arcade.load_texture("icons/edit_icon.png")
+                    rotate_reset_button = arcade.gui.UIFlatButton(text="", width=64, height=64)
+                    rotate_reset_button.add(
+                        child=arcade.gui.UIImage(
+                            texture=rotate_reset_button_icon,
+                            width =64,
+                            height=64,
+                        ),
+                        anchor_x="center",
+                        anchor_y="center"
+                    )
                     edit_text_button = arcade.gui.UIFlatButton(text="",width=32,height=32)
                     edit_text_button.add(
                         child=arcade.gui.UIImage(
@@ -1029,6 +1079,16 @@ class Game(arcade.Window):
                     def on_click(event: arcade.gui.UIOnClickEvent):
                         self.rotating_the_icon = not self.rotating_the_icon
 
+                    @rotate_reset_button.event
+                    def on_click(event: arcade.gui.UIOnClickEvent):
+                        self.selected_world_icon.angle = 0
+                        index = 0
+                        for icon in self.icons['locations']:
+                            if icon['x'] == self.selected_world_icon.position[0] and icon['y'] == self.selected_world_icon.position[1]:
+                                icon['angle_rot'] = 0
+                            else:
+                                index+=1
+
                     @move_button.event
                     def on_click(event: arcade.gui.UIOnClickEvent):
                         self.moving_the_icon = True
@@ -1052,6 +1112,7 @@ class Game(arcade.Window):
                     self.icon_description.add(move_button)
                     self.icon_description.add(remove_button)
                     self.icon_description.add(rotate_button)
+                    self.icon_description.add(rotate_reset_button)
                     self.icon_description.add(edit_text_button)
                 else:
                     print("No icons found nearby.")
@@ -1078,14 +1139,14 @@ class Game(arcade.Window):
             if self.rotating_the_icon:
                 try:
                     current_angle = math.atan2(world_x - self.selected_world_icon.position[0], world_y - self.selected_world_icon.position[1])
-                    delta_angle = ((current_angle - self.previous_angle + math.pi) % (2 * math.pi)) - math.pi
-                    self.selected_world_icon.angle += delta_angle*64
+                    delta_angle = (((current_angle - self.previous_angle + math.pi) % (2 * math.pi)) - math.pi)*57 #???
+                    self.selected_world_icon.angle += delta_angle
                     self.previous_angle = current_angle
 
                     index = 0
                     for icon in self.icons['locations']:
                         if icon['x'] == self.selected_world_icon.position[0] and icon['y'] == self.selected_world_icon.position[1]:
-                            self.icons['locations']['angle_rot'] += delta_angle*64
+                            icon['angle_rot'] += delta_angle
                         else:
                             index+=1
                 except:
