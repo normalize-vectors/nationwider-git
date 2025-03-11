@@ -217,13 +217,14 @@ class UISaveButton(arcade.gui.UIFlatButton):
 # ---
 
 class Infocon(arcade.Sprite):
-    def __init__(self, path_or_texture = None, scale = 1, center_x = 0, center_y = 0, angle = 0, icon_id = 0, text="", people_count = 0, angle_rot = 0, typename = "", **kwargs):
+    def __init__(self, path_or_texture = None, scale = 1, center_x = 0, center_y = 0, angle = 0, icon_id = 0, text="", people_count = 0, angle_rot = 0, typename = "", unique_id = 1000, **kwargs):
         super().__init__(path_or_texture, scale, center_x, center_y, angle, **kwargs)
         self.icon_id = icon_id
         self.text = text
         self.people_count = people_count
         self.angle_rot = angle_rot
         self.typename = typename
+        self.unique_id = unique_id
 
 # ---
 
@@ -475,7 +476,7 @@ class Game(arcade.Window):
                 "normal": arcade.gui.UIFlatButton.UIStyle(bg=(rgba[0],rgba[1],rgba[2],rgba[3])),
                 "hover" : arcade.gui.UIFlatButton.UIStyle(bg=(rgba[0]+5,rgba[1]+5,rgba[2]+5,rgba[3])),
                 "press" : arcade.gui.UIFlatButton.UIStyle(bg=(rgba[0],rgba[1],rgba[2],rgba[3]-50))
-                }).with_padding(all=3)
+                })
             pallete_buttons.add(button, row=i // 10, column=i % 10)
 
             # connect event handler
@@ -756,7 +757,8 @@ class Game(arcade.Window):
                            icon['text'],
                            icon['people_count'],
                            icon['angle_rot'],
-                           icon['typename']
+                           icon['typename'],
+                           icon['unique_id']
                         )
             icon_object.angle = icon['angle_rot']
             self.info_scene.add_sprite("0",icon_object)
@@ -930,6 +932,10 @@ class Game(arcade.Window):
             self.zoomed_speed_mod_adder = 0
 
     def on_mouse_press(self, x, y, button, modifiers):
+        if button is arcade.MOUSE_BUTTON_RIGHT:
+            if self.selected_icon_id:
+                self.selected_icon_id = None
+                self.on_notification_toast("Deselected icon id.",warn=True)
         if button is arcade.MOUSE_BUTTON_LEFT:
             self.last_pressed_screen = (x, y)
             diff_fr_res = (SCREEN_SIZE[0]-self.resized_size[0])/2, (SCREEN_SIZE[1]-self.resized_size[1])/2
@@ -980,7 +986,8 @@ class Game(arcade.Window):
             else:
                 if self.selected_icon_id or self.selected_icon_id == 0:
                     icon_path = str(ICON_ID_MAP.get(self.selected_icon_id))+".png"
-                    icon = Infocon(icon_path,1,world_x,world_y,0.0,self.selected_icon_id,"",0,0,ICON_ID_MAP.get(self.selected_icon_id))
+                    generated_unique_id = random.randrange(1000,9999)
+                    icon = Infocon(icon_path,1,world_x,world_y,0.0,self.selected_icon_id,"",0,0,ICON_ID_MAP.get(self.selected_icon_id),generated_unique_id)
                     self.info_scene.add_sprite("0",icon)
                     self.info_scene_list.append(icon)
                     self.icons["locations"].append({
@@ -990,25 +997,35 @@ class Game(arcade.Window):
                         "text": "",
                         "people_count": 0,
                         "angle_rot": 0,
-                        "typename": ICON_ID_MAP.get(self.selected_icon_id)
+                        "typename": ICON_ID_MAP.get(self.selected_icon_id),
+                        "unique_id": generated_unique_id
                     })
-                    self.selected_icon_id = None
+                    #self.selected_icon_id = None
+
                 nearby_icon = self.find_icon_near(world_x, world_y, radius=10)
                 if nearby_icon:
-                    print(f"Found {nearby_icon}")
                     self.selected_world_icon = nearby_icon
+                    nearby_icon_dict = None
+                    nearby_icon_dict_index = 0
+                    for icon in self.icons['locations']:
+                        if icon['unique_id'] == nearby_icon.unique_id:
+                            nearby_icon_dict = icon
+                            self.on_notification_toast(f"Found corresponding icon in dict. index;{nearby_icon_dict_index}")
+                            break
+                        else:
+                            nearby_icon_dict_index+=1
                     self.icon_description.clear()
                     label = arcade.gui.UITextArea(
-                        text=f"Info: {nearby_icon.text}",
+                        text=f"{nearby_icon.typename}\nPeople count: {nearby_icon.people_count}\n{nearby_icon.text}",
                         multiline=True,
-                        width=256,
+                        width=320,
                         height=64
                     ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
-                    move_button_icon = arcade.load_texture("icons/move_icon.png")
-                    remove_button_icon = arcade.load_texture("icons/remove_icon.png")
-                    rotate_button_icon = arcade.load_texture("icons/rotate_icon.png")
-                    rotate_reset_button_icon = arcade.load_texture("icons/rotate_reset_icon.png")
-                    edit_button_icon = arcade.load_texture("icons/edit_icon.png")
+                    move_button_icon            = arcade.load_texture("icons/move_icon.png")
+                    remove_button_icon          = arcade.load_texture("icons/remove_icon.png")
+                    rotate_button_icon          = arcade.load_texture("icons/rotate_icon.png")
+                    rotate_reset_button_icon    = arcade.load_texture("icons/rotate_reset_icon.png")
+                    edit_button_icon            = arcade.load_texture("icons/edit_icon.png")
                     move_button = arcade.gui.UIFlatButton(text="", width=64, height=64)
                     move_button.add(
                         child=arcade.gui.UIImage(
@@ -1073,7 +1090,8 @@ class Game(arcade.Window):
 
                         @text_input.event("on_change")
                         def on_text_change(event: arcade.gui.UIOnChangeEvent):
-                            nearby_icon.text = event.new_value
+                            nearby_icon.people_count = event.new_value
+                            nearby_icon_dict['people_count'] = event.new_value
 
                     @rotate_button.event
                     def on_click(event: arcade.gui.UIOnClickEvent):
@@ -1082,29 +1100,19 @@ class Game(arcade.Window):
                     @rotate_reset_button.event
                     def on_click(event: arcade.gui.UIOnClickEvent):
                         self.selected_world_icon.angle = 0
-                        index = 0
-                        for icon in self.icons['locations']:
-                            if icon['x'] == self.selected_world_icon.position[0] and icon['y'] == self.selected_world_icon.position[1]:
-                                icon['angle_rot'] = 0
-                            else:
-                                index+=1
+                        nearby_icon_dict['angle_rot'] = 0
 
                     @move_button.event
                     def on_click(event: arcade.gui.UIOnClickEvent):
                         self.moving_the_icon = True
-                        print(f"moving icon ...")
 
                     @remove_button.event
                     def on_click(event: arcade.gui.UIOnClickEvent):
                         self.info_scene_list.remove(self.selected_world_icon)
                         abc = self.info_scene.get_sprite_list("0")
                         abc.remove(self.selected_world_icon)
-                        index = 0
-                        for icon in self.icons['locations']:
-                            if icon['x'] == self.selected_world_icon.position[0] and icon['y'] == self.selected_world_icon.position[1]:
-                                self.icons['locations'].pop(index)
-                            else:
-                                index+=1
+                        self.icons['locations'].pop(nearby_icon_dict_index)
+                        self.on_notification_toast("Successfully removed icon.")
 
                         self.selected_world_icon = None
 
