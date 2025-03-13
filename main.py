@@ -114,14 +114,24 @@ REVERSED_ID_MAP = {
 }
 
 REVERSED_POLITICAL_ID_MAP = {
-    0   :   (53, 53, 53), 
-    1   :   (121, 7, 18), # DRAGONEGGLOL
-    2   :   (42, 86, 18), # UMM
-    3   :   (183, 197, 215), # WATBOI
-    4   :   (20, 209, 136), # ASIMPLECREATOR
-    5   :   (193, 38, 38), # CATARMOUR
-    6   :   (63, 63, 116), # BALLISTICMISSILE
-    7   :   (0,0,0),
+    0   :   (53, 53, 53), # wilderness
+    1   :   (121, 7, 18),
+    2   :   (42, 86, 18),
+    3   :   (183, 197, 215),
+    4   :   (20, 209, 136),
+    5   :   (193, 38, 38),
+    6   :   (63, 63, 116), # Aurimukstis1
+    7   :   (10, 41, 93),
+    8   :   (18, 158, 165),
+    9   :   (20, 55, 17),
+    10  :   (196, 153, 0),
+    11  :   (243, 104, 6),
+    12  :   (84, 198, 223),
+    13  :   (95, 22, 151),
+    14  :   (48, 114, 214),
+    15  :   (78, 104, 77),
+    16  :   (0, 112, 141),
+    17  :   (243, 145, 51)
 }
 
 ICON_ID_MAP = {
@@ -304,6 +314,10 @@ class Game(arcade.Window):
         self.moving_the_icon        = False
         self.rotating_the_icon      = False
 
+        self.selected_line          = None
+        self.drawing_line_start     = None
+        self.drawing_line_end       = None
+
         self.terrain_scene          = arcade.Scene()
         self.political_scene        = arcade.Scene()
         self.info_scene             = arcade.Scene()
@@ -312,9 +326,9 @@ class Game(arcade.Window):
         self.chunk_result_queue     = queue.Queue()
         self.requested_chunks       = set()
 
-        self.terrain_scene.add_sprite_list("0") # <- water layer
-        self.terrain_scene.add_sprite_list("1") # <- terrain layer BIG
-        self.terrain_scene.add_sprite_list("2") # <- terrain layer SMALL
+        self.terrain_scene.add_sprite_list("0")
+        self.terrain_scene.add_sprite_list("1")
+        self.terrain_scene.add_sprite_list("2") 
 
         self.info_scene.add_sprite_list("0")
         self.info_scene_list = []
@@ -329,24 +343,25 @@ class Game(arcade.Window):
         self.toasts.with_padding(all=10)
 
         # < - DEFINING GRIDS FOR ALL LAYERS #GRIDS
-        self.political_layer    = GridLayer((600,300)   ,20)
-        self.upper_terrain_layer = GridLayer((600,300)   ,20)
-        self.lower_terrain_layer  = GridLayer((12000,6000),1)
+        self.political_layer        = GridLayer((600,300)   ,20)
+        self.upper_terrain_layer    = GridLayer((600,300)   ,20)
+        self.lower_terrain_layer    = GridLayer((12000,6000),1)
 
-        self.s_political_layer    = GridLayer((600,300),20)
-        self.s_upper_terrain_layer = GridLayer((600,300),20)
-        self.icons                    = {
-            'locations': []
+        self.s_political_layer      = GridLayer((600,300)   ,20)
+        self.s_upper_terrain_layer  = GridLayer((600,300)   ,20)
+        self.icons = {
+            'locations': [],
+            'lines': []
         }
         # -
 
         # < - LOADING DATA FROM FILE #LOAD
-        loaded_data = np.load("shareddata/mapdata_maybe.npz",allow_pickle=True)
+        loaded_data = np.load("shareddata/converted_mapdata.npz",allow_pickle=True)
         loaded_a_data                   = loaded_data['a']
         self.upper_terrain_layer.grid[:]= loaded_a_data
 
         loaded_b_data                   = loaded_data['b']
-        self.political_layer.grid[:]    = loaded_b_data #np.zeros((600,300),dtype=np.uint8)
+        self.political_layer.grid[:]    = loaded_b_data
 
         loaded_c_data                   = loaded_data['c']
         self.lower_terrain_layer.grid[:]= loaded_c_data
@@ -355,7 +370,7 @@ class Game(arcade.Window):
         self.s_upper_terrain_layer.grid[:]= loaded_a_s_data
 
         loaded_b_s_data                 = loaded_data['b_s']
-        self.s_political_layer.grid[:]  = loaded_b_s_data #np.zeros((600,300),dtype=np.uint8)
+        self.s_political_layer.grid[:]  = loaded_b_s_data
 
         self.icons_array                = loaded_data['cc']
         self.icons = self.icons_array.item()
@@ -515,7 +530,18 @@ class Game(arcade.Window):
             "Watboi"            : 3,
             "ASimpleCreator"    : 4,
             "Catarmour"         : 5,
-            "Aurimukstis1"      : 6
+            "Aurimukstis1"      : 6,
+            "Tuna"              : 7,
+            "Rubidianlabs"      : 8,
+            "LightningBMW"      : 9,
+            "N2H4"              : 10,
+            "Loiosh"            : 11,
+            "Antigrain"         : 12,
+            "AVeryBigNurd"      : 13,
+            "Superbantom"       : 14,
+            "NuttyMCNuttzz"     : 15,
+            "Raven314"          : 16,
+            "Spikey_boy"        : 17
                                 }
 
         for i, (biome_name, biome_id) in enumerate(self.pallete.items()):
@@ -689,7 +715,7 @@ class Game(arcade.Window):
 
             a_s_grid = extract_attribute_biome(self.s_upper_terrain_layer.grid)
             b_s_grid = extract_attribute_country(self.s_political_layer.grid)
-            np.savez_compressed("shareddata/mapdata_maybe.npz",
+            np.savez_compressed("shareddata/converted_mapdata.npz",
                                 a=a_grid,
                                 b=b_grid,
                                 c=c_grid,
@@ -780,17 +806,34 @@ class Game(arcade.Window):
             icons_within_radius,
             key=lambda icon: math.sqrt((icon.position[0] - x) ** 2 + (icon.position[1] - y) ** 2)
         )
+    
+    def find_line_near(self, x, y, radius=5):
+        """Finds closest line within given radius."""
+        if not self.icons['lines']:
+            return None
+        
+        lines_within_radius = [
+            line for line in self.icons['lines']
+            if math.sqrt((line[0][0] - x) ** 2 + (line[0][1] - y) ** 2) <= radius
+        ]
+
+        if not lines_within_radius:
+            return None
+        
+        return min(
+            lines_within_radius,
+            key=lambda line: math.sqrt((line[0][0] - x) ** 2 + (line[0][1] - y) ** 2)
+        )
 
     def setup(self):
         for x in range(600):
+            if x % 50 == 0:
+                print(f"+ Progress: {x} background rows loaded...")
             for y in range(300):
                 self.terrain_scene.add_sprite(
                     "0",
                     Tile(20, 20, x * 20, (y * 20), (0, 0, 127, 255), 0)
                 )
-        
-        for x in range(600):
-            for y in range(300):
                 self.terrain_scene.add_sprite(
                     "0",
                     Tile(20, 20, x * 20, (y * 20) * -1, (0, 0, 127, 225), 0)
@@ -893,9 +936,9 @@ class Game(arcade.Window):
                 low_terrain.visible = False
 
             list_of_chunks = []
-            for a in range(4):
-                for b in range(4):
-                    camera_tile = (round(((self.camera.position.x/20)+a)-2),round(((self.camera.position.y/20)+b)-2))
+            for a in range(6):
+                for b in range(6):
+                    camera_tile = (round(((self.camera.position.x/20)+a)-3),round(((self.camera.position.y/20)+b)-3))
                     if not (camera_tile[0],camera_tile[1]) in self.requested_chunks:
                         list_of_chunks.append((camera_tile[0],camera_tile[1]))
                         self.requested_chunks.add((camera_tile[0],camera_tile[1]))
@@ -924,6 +967,9 @@ class Game(arcade.Window):
 
         self.political_scene.draw(pixelated=True)
 
+        for start, end in self.icons['lines']:
+            arcade.draw_line(start[0],start[1],end[0],end[1],(255,0,0,255),line_width=1)
+
         self.info_scene.draw(pixelated=True)
 
         if self.selected_world_icon:
@@ -933,6 +979,9 @@ class Game(arcade.Window):
                 arcade.draw_circle_outline(self.selected_world_icon.position[0],self.selected_world_icon.position[1],max(32-(self.camera.zoom*3),8),(255,255,255,255),1,0)
             else:
                 arcade.draw_circle_outline(self.selected_world_icon.position[0],self.selected_world_icon.position[1],max(32-(self.camera.zoom*3),8),(255,255,255,255),1,0,6)
+
+        if self.selected_line:
+            arcade.draw_lbwh_rectangle_outline(self.selected_line[0]-4,self.selected_line[1]-4,8,8,(255,0,0,255),1)
 
         if self.editing_mode == False:
             if self.moving_the_icon == False:
@@ -1034,7 +1083,7 @@ class Game(arcade.Window):
 
     def on_mouse_press(self, x, y, button, modifiers):
         if button is arcade.MOUSE_BUTTON_RIGHT:
-            if self.selected_icon_id:
+            if self.selected_icon_id or self.selected_icon_id == 0:
                 self.selected_icon_id = None
                 self.on_notification_toast("Deselected icon id.",warn=True)
         if button is arcade.MOUSE_BUTTON_LEFT:
@@ -1092,25 +1141,37 @@ class Game(arcade.Window):
 
             else:
                 if self.selected_icon_id or self.selected_icon_id == 0:
-                    icon_path = str(ICON_ID_MAP.get(self.selected_icon_id))+".png"
-                    generated_unique_id:int = random.randrange(1000,9999)
-                    icon = Infocon(icon_path,1,world_x,world_y,0.0,self.selected_icon_id,"",0,0,icon_path,generated_unique_id,0)
-                    self.info_scene.add_sprite("0",icon)
-                    self.info_scene_list.append(icon)
-                    self.icons["locations"].append({
-                        "id": self.selected_icon_id,
-                        "x": world_x,
-                        "y": world_y,
-                        "text": "",
-                        "people_count": 0,
-                        "angle_rot": 0,
-                        "typename": icon_path,
-                        "unique_id": generated_unique_id,
-                        "country_id": 0
-                    })
-                    #self.selected_icon_id = None
+                    if self.selected_icon_id == 9:
+                        if self.drawing_line_start == None:
+                            self.drawing_line_start = (world_x,world_y)
+                            self.on_notification_toast(f"starting line at {world_x,world_y}")
+                        else:
+                            self.drawing_line_end = (world_x,world_y)
+                            self.icons['lines'].append((self.drawing_line_start, self.drawing_line_end))
+                            self.on_notification_toast(f"made line at {self.drawing_line_start} . {self.drawing_line_end}")
+                            self.drawing_line_start = None
+                            self.drawing_line_end = None
+                    else:
+                        icon_path = str(ICON_ID_MAP.get(self.selected_icon_id))+".png"
+                        generated_unique_id:int = random.randrange(1000,9999)
+                        icon = Infocon(icon_path,1,world_x,world_y,0.0,self.selected_icon_id,"",0,0,icon_path,generated_unique_id,0)
+                        self.info_scene.add_sprite("0",icon)
+                        self.info_scene_list.append(icon)
+                        self.icons["locations"].append({
+                            "id": self.selected_icon_id,
+                            "x": world_x,
+                            "y": world_y,
+                            "text": "",
+                            "people_count": 0,
+                            "angle_rot": 0,
+                            "typename": icon_path,
+                            "unique_id": generated_unique_id,
+                            "country_id": 0
+                        })
+                        #self.selected_icon_id = None
 
-                nearby_icon = self.find_icon_near(world_x, world_y, radius=10)
+                nearby_icon = self.find_icon_near(world_x, world_y, radius=20)
+                nearby_line = self.find_line_near(world_x, world_y, radius=10)
                 if nearby_icon:
                     self.selected_world_icon = nearby_icon
                     nearby_icon_dict = None
@@ -1133,7 +1194,6 @@ class Game(arcade.Window):
                     remove_button_icon          = arcade.load_texture("icons/remove_icon.png")
                     rotate_button_icon          = arcade.load_texture("icons/rotate_icon.png")
                     rotate_reset_button_icon    = arcade.load_texture("icons/rotate_reset_icon.png")
-                    edit_button_icon            = arcade.load_texture("icons/edit_icon.png")
                     move_button = arcade.gui.UIFlatButton(text="", width=64, height=64)
                     move_button.add(
                         child=arcade.gui.UIImage(
@@ -1251,6 +1311,7 @@ class Game(arcade.Window):
                         abc = self.info_scene.get_sprite_list("0")
                         abc.remove(self.selected_world_icon)
                         self.icons['locations'].pop(nearby_icon_dict_index)
+                        self.icon_description.clear()
                         self.on_notification_toast("Successfully removed icon.")
 
                         self.selected_world_icon = None
@@ -1264,9 +1325,50 @@ class Game(arcade.Window):
                     self.icon_description.add(edit_number_button)
                     self.icon_description.add(edit_country_button)
                 else:
-                    print("No icons found nearby.")
-                    self.selected_world_icon = None
-                    self.icon_description.clear()
+                    if nearby_line:
+                        index = 0
+                        for line in self.icons['lines']:
+                            if line[0][0] == nearby_line[0][0] and line[0][1] == nearby_line[0][1]:
+                                #self.icons['lines'].pop(index)
+                                self.selected_line = (nearby_line[0][0],nearby_line[0][1])
+                                self.on_notification_toast(f"Found line at {round(nearby_line[0][0])} and {round(nearby_line[0][1])}")
+                                break
+                            else:
+                                index += 1
+
+                        self.icon_description.clear()
+                        label = arcade.gui.UITextArea(
+                            text=f"Line {round(nearby_line[0][0])} {round(nearby_line[0][1])}",
+                            multiline=True,
+                            width=128,
+                            height=64
+                        ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
+                        remove_button_icon = arcade.load_texture("icons/remove_icon.png")
+                        remove_button = arcade.gui.UIFlatButton(text="", width=64, height=64)
+                        remove_button.add(
+                            child=arcade.gui.UIImage(
+                                texture=remove_button_icon,
+                                width =64,
+                                height=64,
+                            ),
+                            anchor_x="center",
+                            anchor_y="center"
+                        )
+                        
+                        @remove_button.event
+                        def on_click(event: arcade.gui.UIOnClickEvent):
+                            self.icons['lines'].pop(index)
+                            self.selected_line = None
+                            self.icon_description.clear()
+                            self.on_notification_toast("Successfully removed line.")
+
+                        self.icon_description.add(label)
+                        self.icon_description.add(remove_button)
+                    else:
+                        print("Found absolutely nothing in vicinity.") 
+                        self.selected_world_icon = None
+                        self.selected_line = None
+                        self.icon_description.clear()
 
     def on_mouse_drag(self, x, y, dx, dy, buttons, modifiers):
         camera = self.camera
@@ -1290,7 +1392,7 @@ class Game(arcade.Window):
             if self.rotating_the_icon:
                 try:
                     current_angle = math.atan2(world_x - self.selected_world_icon.position[0], world_y - self.selected_world_icon.position[1])
-                    delta_angle = (((current_angle - self.previous_angle + math.pi) % (2 * math.pi)) - math.pi)*57 #???
+                    delta_angle = (((current_angle - self.previous_angle + math.pi) % (2 * math.pi)) - math.pi) * 100#???
                     self.selected_world_icon.angle += delta_angle
                     self.previous_angle = current_angle
 
