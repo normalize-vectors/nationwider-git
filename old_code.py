@@ -74,3 +74,28 @@
         #     return ID_MAP.get(tuple(rgb), 255) 
 
         # self.s_loaded_id_grid = np.apply_along_axis(rgb_to_id, axis=-1, arr=image_array)
+
+
+
+        # if self.editing_mode == False:
+        #     if self.moving_the_icon == False:
+        #         if self.last_pressed_world:
+        #             if self.current_position_world:
+        #                 # selection rectangle coordinates
+        #                 left = min(self.last_pressed_world[0], self.current_position_world[0])
+        #                 right = max(self.last_pressed_world[0], self.current_position_world[0])
+        #                 bottom = min(self.last_pressed_world[1], self.current_position_world[1])
+        #                 top = max(self.last_pressed_world[1], self.current_position_world[1])
+
+        #                 arcade.draw_lrbt_rectangle_outline(left, right, bottom, top, arcade.color.ORIOLES_ORANGE, self.selection_rectangle_size)
+        #                 # ^ drawing the selection
+
+
+
+        # if self.current_position_world:
+        #     nearby_icon = self.find_icon_near(self.current_position_world[0], self.current_position_world[1], radius=32)
+        #     if nearby_icon:
+        #         if self.current_position_world:
+        #             #arcade.draw_text(nearby_icon.typename,nearby_icon.position[0],nearby_icon.position[1]+16,arcade.color.WHITE,9,width=64,multiline=True,anchor_x="center",)
+        #             text = arcade.Text(nearby_icon.typename,nearby_icon.position[0],nearby_icon.position[1]+16,arcade.color.WHITE,12,64,"center","calibri",False,False,"center","top",True,0,None,None,0)
+        #             text.draw()

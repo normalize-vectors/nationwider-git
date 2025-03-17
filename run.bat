@@ -1,0 +1,1 @@
+c:/Users/Aurimas/Desktop/PROGRAMMING/nationwider-git/Scripts/python.exe c:/Users/Aurimas/Desktop/PROGRAMMING/nationwider-git/main.py
