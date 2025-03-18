@@ -1,5 +1,6 @@
 import arcade
 import numpy
+import os
 
 class Icon(arcade.Sprite):
     """An icon on the map using a texture."""
@@ -46,6 +47,17 @@ class GridLayer():
         if 0 <= x < self.grid_width and 0 <= y < self.grid_height:
             return self.grid[x][y]
         return None
+    
+def get_all_files(directory):
+    all_files = []
+    
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            file_path = os.path.join(root, file)
+            all_files.append(file_path)
+            
+    return all_files
+
 
 if __name__ == "__main__":
     print("""nation-utils, custom python file for holding reused code for several files.""")

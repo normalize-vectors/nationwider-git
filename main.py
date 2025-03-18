@@ -11,6 +11,7 @@ from dataclasses import dataclass
 import json
 import random
 import nation_utils as na
+import time
 # display settings
 WIDTH, HEIGHT = 1920, 1080
 SCREEN_SIZE = (WIDTH, HEIGHT)
@@ -229,6 +230,24 @@ class Game(arcade.Window):
         self.ui = arcade.gui.UIManager()
         self.ui.enable()
 
+        # self.loaded_reference_photo = arcade.load_texture('map_image_data/reference.png')
+        # self.reference_photo = arcade.Sprite(self.loaded_reference_photo,1,6000,3000,0)
+        # self.reference_photo.alpha = 100
+
+        load_menu_anchor = self.ui.add(arcade.gui.UIAnchorLayout())
+        self.load_menu_buttons = load_menu_anchor.add(arcade.gui.UIBoxLayout(space_between=2), anchor_x="center", anchor_y="center")
+        savefiles = na.get_all_files('shareddata')
+
+        for i, savefile in enumerate(savefiles):
+            save_file_button = arcade.gui.UIFlatButton(width=300,height=64,text=f"{savefile}")
+
+            self.load_menu_buttons.add(save_file_button)
+
+            @save_file_button.event
+            def on_click(event: arcade.gui.UIOnClickEvent, savename=savefile, index=i):
+                self.on_clicked_load(savename)
+                self.load_menu_buttons.clear()
+
         anchor = self.ui.add(arcade.gui.UIAnchorLayout())
         self.toasts = anchor.add(arcade.gui.UIBoxLayout(space_between=2), anchor_x="left", anchor_y="top")
         self.toasts.with_padding(all=10)
@@ -244,28 +263,6 @@ class Game(arcade.Window):
             'locations': [],
             'lines': []
         }
-        # -
-
-        # < - LOADING DATA FROM FILE #LOAD
-        loaded_data = np.load("shareddata/converted_mapdata.npz",allow_pickle=True)
-        loaded_a_data                   = loaded_data['a']
-        self.upper_terrain_layer.grid[:]= loaded_a_data
-
-        loaded_b_data                   = loaded_data['b']
-        self.political_layer.grid[:]    = loaded_b_data
-
-        loaded_c_data                   = loaded_data['c']
-        self.lower_terrain_layer.grid[:]= loaded_c_data
-
-        loaded_a_s_data                 = loaded_data['a_s']
-        self.s_upper_terrain_layer.grid[:]=loaded_a_s_data
-
-        loaded_b_s_data                 = loaded_data['b_s']
-        self.s_political_layer.grid[:]  = loaded_b_s_data
-
-        self.icons_array                = loaded_data['cc']
-        self.icons = self.icons_array.item()
-        # -
 
         geographic_icon  = arcade.load_texture("icons/geo_map_icon.png")
         political_icon   = arcade.load_texture("icons/pol_map_icon.png")
@@ -605,6 +602,29 @@ class Game(arcade.Window):
 
         self.toasts.add(toast)
 
+    def on_clicked_load(self, filename: str):
+        loaded_data = np.load(filename,allow_pickle=True)
+        print(f"loading {filename}")
+        loaded_a_data                   = loaded_data['a']
+        self.upper_terrain_layer.grid[:]= loaded_a_data
+
+        loaded_b_data                   = loaded_data['b']
+        self.political_layer.grid[:]    = loaded_b_data
+
+        loaded_c_data                   = loaded_data['c']
+        self.lower_terrain_layer.grid[:]= loaded_c_data
+
+        loaded_a_s_data                 = loaded_data['a_s']
+        self.s_upper_terrain_layer.grid[:]=loaded_a_s_data
+
+        loaded_b_s_data                 = loaded_data['b_s']
+        self.s_political_layer.grid[:]  = loaded_b_s_data
+
+        icons_array                     = loaded_data['cc']
+        self.icons = icons_array.item()
+
+        self.setup()
+
     def on_clicked_save(self):
         try:
             self.on_notification_toast("Trying to save map ...")
@@ -626,7 +646,7 @@ class Game(arcade.Window):
 
             a_s_grid = extract_attribute_biome(self.s_upper_terrain_layer.grid)
             b_s_grid = extract_attribute_country(self.s_political_layer.grid)
-            np.savez_compressed("shareddata/converted_mapdata.npz",
+            np.savez_compressed(f"shareddata/{time.localtime().tm_year}_{time.localtime().tm_mon}_{time.localtime().tm_mday}_{time.localtime().tm_hour}_{time.localtime().tm_min}_{time.localtime().tm_sec}.npz",
                                 a=a_grid,
                                 b=b_grid,
                                 c=c_grid,
@@ -700,24 +720,6 @@ class Game(arcade.Window):
         except queue.Empty:
             pass
 
-    def find_icon_near(self, x, y, radius=5):
-        """Finds the closest icon within the given radius."""
-        if not self.info_scene_list:
-            return None
-        
-        icons_within_radius = [
-            icon for icon in self.info_scene_list
-            if math.sqrt((icon.position[0] - x) ** 2 + (icon.position[1] - y) ** 2) <= radius
-        ]
-
-        if not icons_within_radius:
-            return None
-
-        return min(
-            icons_within_radius,
-            key=lambda icon: math.sqrt((icon.position[0] - x) ** 2 + (icon.position[1] - y) ** 2)
-        )
-    
     def find_element_near(self, x, y, elements, position_extractor=lambda elem: elem.position, radius=5):
         if not elements:
             return None
@@ -1433,7 +1435,7 @@ class Game(arcade.Window):
 
 def main():
     game = Game(WIDTH, HEIGHT, "NATIONWIDER")
-    game.setup()
+    # game.setup()
     arcade.run()
     game.cleanup()
 
