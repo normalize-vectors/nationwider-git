@@ -10,6 +10,7 @@ import queue
 from dataclasses import dataclass
 import json
 import random
+import nation_utils as na
 # display settings
 WIDTH, HEIGHT = 1920, 1080
 SCREEN_SIZE = (WIDTH, HEIGHT)
@@ -158,147 +159,19 @@ ICON_ID_MAP = {
     18:"icons/units/vessel_dreadnought",
     19:"icons/units/vessel_carrier",
     # -
-    20:"icons/units/unit_0.1k",
-    21:"icons/units/unit_1k",
-    22:"icons/units/unit_5k",
-    23:"icons/units/unit_10k",
-    24:"icons/units/unit_100k",
-    # -
-    25:"icons/units/unit_artillery",
-    26:"icons/units/unit_cavalry",
-    27:"icons/units/unit_heavy_artillery",
-    28:"icons/units/unit_heavy_cavalry",
-    29:"icons/units/unit_heavy_infantry",
-    30:"icons/units/unit_infantry",
-    31:"icons/units/unit_ranged_cavalry",
-    32:"icons/units/unit_ranged_infantry",
-    33:"icons/units/unit_skirmishers"
+    20:"icons/units/unit_artillery",
+    21:"icons/units/unit_cavalry",
+    22:"icons/units/unit_heavy_artillery",
+    23:"icons/units/unit_heavy_cavalry",
+    24:"icons/units/unit_heavy_infantry",
+    25:"icons/units/unit_infantry",
+    26:"icons/units/unit_ranged_cavalry",
+    27:"icons/units/unit_ranged_infantry",
+    28:"icons/units/unit_skirmishers"
 }
 
+
 print(ICON_ID_MAP)
-
-# ---
-
-@dataclass
-class ChooseColor(arcade.gui.UIEvent):
-    id_     : int
-    id_name : str
-
-@dataclass
-class ChooseCountry(arcade.gui.UIEvent):
-    id_     : int
-    id_name : str
-
-@dataclass
-class NotifyUser(arcade.gui.UIEvent):
-    text    : str
-    warn    : bool
-    error   : bool
-
-@dataclass
-class SaveWorld(arcade.gui.UIEvent):
-    save    : bool
-
-# ---
-
-class Toast(arcade.gui.UILabel):
-    """Info notification"""
-    def __init__(self, text: str, duration: float = 2.0, **kwargs):
-        super().__init__(**kwargs)
-        self.text     = text
-        self.duration = duration
-        self.time     = 0
-
-    def on_update(self, dt):
-        self.time += dt
-
-        if self.time > self.duration:
-            self.parent.remove(self)
-
-class UIPalleteButton(arcade.gui.UIFlatButton):
-    def __init__(self, *, x = 0, y = 0, width = 100, height = 50, text="", multiline=False, size_hint=None, size_hint_min=None, size_hint_max=None, style=None, id_=0, supplied_id_name="", **kwargs):
-        super().__init__(x=x, y=y, width=width, height=height, text=text, multiline=multiline, size_hint=size_hint, size_hint_min=size_hint_min, size_hint_max=size_hint_max, style=style, **kwargs)
-        self._id      : int = id_
-        self._id_name : str = supplied_id_name
-
-        self.register_event_type("on_choose_color")
-
-    def on_click(self, event) -> bool:
-        self.dispatch_event(
-            "on_choose_color", ChooseColor(self, self._id, self._id_name)
-        )
-        return True
-
-    def on_choose_color(self, event: ChooseColor):
-        pass
-
-class UICountryButton(arcade.gui.UIFlatButton):
-    def __init__(self, *, x = 0, y = 0, width = 100, height = 50, text="", multiline=False, size_hint=None, size_hint_min=None, size_hint_max=None, style=None, id_=0, supplied_id_name="", **kwargs):
-        super().__init__(x=x, y=y, width=width, height=height, text=text, multiline=multiline, size_hint=size_hint, size_hint_min=size_hint_min, size_hint_max=size_hint_max, style=style, **kwargs)
-        self._id      : int = id_
-        self._id_name : str = supplied_id_name
-
-        self.register_event_type("on_choose_country")
-
-    def on_click(self, event) -> bool:
-        self.dispatch_event(
-            "on_choose_country", ChooseCountry(self, self._id, self._id_name)
-        )
-        return True
-
-    def on_choose_country(self, event: ChooseCountry):
-        pass
-
-class UISaveButton(arcade.gui.UIFlatButton):
-    def __init__(self, *, x = 0, y = 0, width = 100, height = 50, text="", multiline=False, size_hint=None, size_hint_min=None, size_hint_max=None, style=None, **kwargs):
-        super().__init__(x=x, y=y, width=width, height=height, text=text, multiline=multiline, size_hint=size_hint, size_hint_min=size_hint_min, size_hint_max=size_hint_max, style=style, **kwargs)
-
-        self.register_event_type("on_click_save")
-
-    def on_click(self, event) -> bool:
-        self.dispatch_event(
-            "on_click_save", SaveWorld(self, True)
-        )
-        return True
-
-    def on_click_save(self, event: SaveWorld):
-        pass
-
-# ---
-
-class Infocon(arcade.Sprite):
-    def __init__(self, path_or_texture = None, scale = 1, center_x = 0, center_y = 0, angle = 0, icon_id = 0, text="", people_count = 0, angle_rot = 0, typename = "", unique_id = 1000, country_id = 0, **kwargs):
-        super().__init__(path_or_texture, scale, center_x, center_y, angle, **kwargs)
-        self.icon_id = icon_id
-        self.text = text
-        self.people_count = people_count
-        self.angle_rot = angle_rot
-        self.typename = typename
-        self.unique_id = unique_id
-        self.country_id = country_id
-
-# ---
-
-class Tile(arcade.SpriteSolidColor):
-    def __init__(self, width, height, x, y, color, id_):
-        super().__init__(width, height, x, y, arcade.color.WHITE)
-        self.color = color
-        self.id_ = id_
-
-class GridLayer():
-    """Suggestion from @typefoo"""
-    def __init__(self, grid_size: tuple[int, int], tile_size: int = 10):
-        self.tile_size = tile_size
-        self.grid_size = grid_size
-        self.grid = np.empty((grid_size[0], grid_size[1]), dtype=object)
-        self.grid_width, self.grid_height = grid_size
-
-    def __getitem__(self, grid_point: tuple[int, int]):
-        x, y = grid_point
-        if 0 <= x < self.grid_width and 0 <= y < self.grid_height:
-            return self.grid[x][y]
-        return None
-
 # ---
 
 class Game(arcade.Window):
@@ -361,12 +234,12 @@ class Game(arcade.Window):
         self.toasts.with_padding(all=10)
 
         # < - DEFINING GRIDS FOR ALL LAYERS #GRIDS
-        self.political_layer        = GridLayer((600,300)   ,20)
-        self.upper_terrain_layer    = GridLayer((600,300)   ,20)
-        self.lower_terrain_layer    = GridLayer((12000,6000),1)
+        self.political_layer        = na.GridLayer((600,300)   ,20)
+        self.upper_terrain_layer    = na.GridLayer((600,300)   ,20)
+        self.lower_terrain_layer    = na.GridLayer((12000,6000),1 )
 
-        self.s_political_layer      = GridLayer((600,300)   ,20)
-        self.s_upper_terrain_layer  = GridLayer((600,300)   ,20)
+        self.s_political_layer      = na.GridLayer((600,300)   ,20)
+        self.s_upper_terrain_layer  = na.GridLayer((600,300)   ,20)
         self.icons = {
             'locations': [],
             'lines': []
@@ -428,7 +301,6 @@ class Game(arcade.Window):
             "keep", "fortress", "bastion", "note", "line",
             "raft", "cog", "yawl", "brig", "corvette",
             "frigate", "cruiser", "battleship", "dreadnought", "carrier",
-            "0.1k unit", "1k unit", "5k unit", "10k unit", "100k unit",
             "artillery", "cavarly", "heavy artillery", "heavy cavalry", "heavy infantry",
             "infantry", "ranged cavalry", "ranged infantry", "skirmishers"
         ]
@@ -483,8 +355,10 @@ class Game(arcade.Window):
         )
         self.popupmenu_buttons.visible = False
 
-        save_button = UISaveButton(width=100,height=32,text="Save map")
-        save_button.on_click_save = self.on_clicked_save
+        save_button = arcade.gui.UIFlatButton(width=100,height=32,text="Save map")
+        @save_button.event
+        def on_click(event: arcade.gui.UIOnClickEvent):
+            self.on_clicked_save()
         self.popupmenu_buttons.add(save_button)
 
         self.pallete = {
@@ -570,28 +444,32 @@ class Game(arcade.Window):
         for i, (biome_name, biome_id) in enumerate(self.pallete.items()):
             rgb = REVERSED_ID_MAP.get(biome_id,0)
             rgba= rgb + (255,)
-            button = UIPalleteButton(height=32,width=32,id_=biome_id,text=f"",supplied_id_name=biome_name,style={
+            button = arcade.gui.UIFlatButton(height=32,width=32,style={
                 "normal": arcade.gui.UIFlatButton.UIStyle(bg=(rgba[0],rgba[1],rgba[2],rgba[3])),
                 "hover" : arcade.gui.UIFlatButton.UIStyle(bg=(rgba[0]+5,rgba[1]+5,rgba[2]+5,rgba[3])),
                 "press" : arcade.gui.UIFlatButton.UIStyle(bg=(rgba[0],rgba[1],rgba[2],rgba[3]-50))
                 })
             biome_palette_buttons.add(button)
 
-            # connect event handler
-            button.on_choose_color = self.on_color_button_choose_color
+            @button.event
+            def on_click(event: arcade.gui.UIOnClickEvent, idx=biome_id, name=biome_name):
+                self.selected_lower_id = idx
+                self.on_notification_toast(f"Selected {name}")
 
         for i, (country_owner, country_id) in enumerate(self.country_pallete.items()):
             rgb = REVERSED_POLITICAL_ID_MAP.get(country_id,0)
             rgba= rgb + (255,)
-            button = UICountryButton(height=32,width=32,id_=country_id,text=f"",supplied_id_name=country_owner,style={
+            button = arcade.gui.UIFlatButton(height=32,width=32,style={
                 "normal": arcade.gui.UIFlatButton.UIStyle(bg=(rgba[0],rgba[1],rgba[2],rgba[3])),
                 "hover" : arcade.gui.UIFlatButton.UIStyle(bg=(rgba[0]+5,rgba[1]+5,rgba[2]+5,rgba[3])),
                 "press" : arcade.gui.UIFlatButton.UIStyle(bg=(rgba[0],rgba[1],rgba[2],rgba[3]-50))
                 })
             country_palette_buttons.add(button)
 
-            # connect event handler
-            button.on_choose_country = self.on_country_button_choose_country
+            @button.event
+            def on_click(event: arcade.gui.UIOnClickEvent, idx=country_id, name=country_owner):
+                self.selected_country_id = idx
+                self.on_notification_toast(f"Selected {name}")
 
         biome_toggle = arcade.gui.UIFlatButton(text="", width=64, height=64)
         biome_toggle.add(
@@ -698,38 +576,8 @@ class Game(arcade.Window):
         layer_buttons.add(biome_palette_toggle)
         layer_buttons.add(political_palette_toggle)
 
-    def on_color_button_choose_color(self, event: ChooseColor) -> bool:
-        self.selected_lower_id = event.id_
-        toast = Toast(f"Selected {event.id_name}", width=250)
-        toast.update_font(
-            font_color=arcade.uicolor.DARK_BLUE_MIDNIGHT_BLUE,
-            font_size=12,
-            bold=True
-        )
-        toast.with_background(color=arcade.uicolor.GREEN_EMERALD)
-        toast.with_padding(all=10)
-
-        self.toasts.add(toast)
-
-        return True
-    
-    def on_country_button_choose_country(self, event: ChooseCountry) -> bool:
-        self.selected_country_id = event.id_
-        toast = Toast(f"Selected {event.id_name}", width=250)
-        toast.update_font(
-            font_color=arcade.uicolor.DARK_BLUE_MIDNIGHT_BLUE,
-            font_size=12,
-            bold=True
-        )
-        toast.with_background(color=arcade.uicolor.GREEN_EMERALD)
-        toast.with_padding(all=10)
-
-        self.toasts.add(toast)
-
-        return True
-
     def on_notification_toast(self, message:str="", warn:bool=False, error:bool=False):
-        toast = Toast(message, duration=2)
+        toast = na.Toast(message, duration=2)
 
         toast.update_font(
             font_color=arcade.uicolor.BLACK,
@@ -757,7 +605,7 @@ class Game(arcade.Window):
 
         self.toasts.add(toast)
 
-    def on_clicked_save(self, event: SaveWorld):
+    def on_clicked_save(self):
         try:
             self.on_notification_toast("Trying to save map ...")
             a_grid = np.empty((600,300),dtype=np.uint8)
@@ -765,10 +613,10 @@ class Game(arcade.Window):
             c_grid = np.empty((12000, 6000), dtype=np.uint8)
 
             def extract_id(cell):
-                return cell.id_ if isinstance(cell, Tile) else cell
+                return cell.id_ if isinstance(cell, na.Tile) else cell
             
             def extract_country_id(cell):
-                return cell.id_ if isinstance(cell, Tile) else cell
+                return cell.id_ if isinstance(cell, na.Tile) else cell
             
             extract_attribute_biome = np.vectorize(extract_id, otypes=[np.uint8])
             extract_attribute_country = np.vectorize(extract_country_id, otypes=[np.uint8])
@@ -826,7 +674,7 @@ class Game(arcade.Window):
                     else:
                         pixel_rgba = REVERSED_ID_MAP.get(id_, (0, 0, 0)) + (255,)
 
-                    tile = Tile(1, 1, world_x-9.5, world_y-9.5, pixel_rgba, id_)
+                    tile = na.Tile(1, 1, world_x-9.5, world_y-9.5, pixel_rgba, id_)
                     chunk_spritelist.append(tile)
 
                     grid[world_x][world_y] = tile
@@ -870,6 +718,24 @@ class Game(arcade.Window):
             key=lambda icon: math.sqrt((icon.position[0] - x) ** 2 + (icon.position[1] - y) ** 2)
         )
     
+    def find_element_near(self, x, y, elements, position_extractor=lambda elem: elem.position, radius=5):
+        if not elements:
+            return None
+        
+        # Calculate distance to point x, y
+        def distance(elem):
+            pos = position_extractor(elem)
+            return math.sqrt((pos[0] - x) ** 2 + (pos[1] - y) ** 2)
+        
+        # Filter elements within radius
+        elements_within_radius = [elem for elem in elements if distance(elem) <= radius]
+        
+        if not elements_within_radius:
+            return None
+            
+        # Return closest element
+        return min(elements_within_radius, key=distance)
+    
     def find_line_near(self, x, y, radius=5):
         """Finds closest line within given radius."""
         if not self.icons['lines']:
@@ -890,18 +756,6 @@ class Game(arcade.Window):
 
     def setup(self):
         print("Loading background map [1/3]")
-        for x in range(600):
-            if x % 50 == 0:
-                print(f"+ Progress: {x} background rows loaded...")
-            for y in range(300):
-                self.terrain_scene.add_sprite(
-                    "0",
-                    Tile(20, 20, x * 20, (y * 20), (0, 0, 127, 255), 0)
-                )
-                self.terrain_scene.add_sprite(
-                    "0",
-                    Tile(20, 20, x * 20, (y * 20) * -1, (0, 0, 127, 225), 0)
-                )
 
         print("Loading north map [2/3]")
         for x in range(600):
@@ -916,11 +770,11 @@ class Game(arcade.Window):
                 world_y = (y * 20)
 
                 if tile_id_value == 0:
-                    tile = Tile(20, 20, world_x, world_y, (0,0,0,0), tile_id_value)
-                    political_tile = Tile(20, 20, world_x, world_y, political_rgb+(100,), political_tile_id_value)
+                    tile = na.Tile(20, 20, world_x, world_y, (0,0,0,0), tile_id_value)
+                    political_tile = na.Tile(20, 20, world_x, world_y, political_rgb+(100,), political_tile_id_value)
                 else:
-                    tile = Tile(20, 20, world_x, world_y, pixel_rgb+(255,), tile_id_value)
-                    political_tile = Tile(20, 20, world_x, world_y, political_rgb+(255,), political_tile_id_value)
+                    tile = na.Tile(20, 20, world_x, world_y, pixel_rgb+(255,), tile_id_value)
+                    political_tile = na.Tile(20, 20, world_x, world_y, political_rgb+(255,), political_tile_id_value)
 
                 self.terrain_scene.add_sprite("1",tile)
                 self.political_scene.add_sprite("0", political_tile)
@@ -928,34 +782,34 @@ class Game(arcade.Window):
                 self.upper_terrain_layer.grid[x][y] = tile
                 self.political_layer.grid[x][y] = political_tile
 
-        # print("Loading south map [3/3]")
-        # for x in range(600):
-        #     if x % 50 == 0:
-        #         print(f"+ Progress: {x} south rows loaded...")
-        #     for y in range(300):
-        #         tile_id_value = self.s_upper_terrain_layer.grid[x][y]
-        #         political_tile_id_value = self.s_political_layer.grid[x][y]
-        #         pixel_rgb = REVERSED_ID_MAP.get(tile_id_value,(255,255,255))
-        #         political_rgb = REVERSED_POLITICAL_ID_MAP.get(political_tile_id_value,(53,53,53))
-        #         world_x = (x * 20)
-        #         world_y = (y * 20)-6000
+        print("Loading south map [3/3]")
+        for x in range(600):
+            if x % 50 == 0:
+                print(f"+ Progress: {x} south rows loaded...")
+            for y in range(300):
+                tile_id_value = self.s_upper_terrain_layer.grid[x][y]
+                political_tile_id_value = self.s_political_layer.grid[x][y]
+                pixel_rgb = REVERSED_ID_MAP.get(tile_id_value,(255,255,255))
+                political_rgb = REVERSED_POLITICAL_ID_MAP.get(political_tile_id_value,(53,53,53))
+                world_x = (x * 20)
+                world_y = (y * 20)-6000
 
-        #         if tile_id_value == 0:
-        #             tile            = Tile(20, 20, world_x, world_y, (0,0,0,0), tile_id_value)
-        #             political_tile  = Tile(20, 20, world_x, world_y, political_rgb+(100,), political_tile_id_value)
-        #         else:
-        #             tile            = Tile(20, 20, world_x, world_y, pixel_rgb+(255,), tile_id_value)
-        #             political_tile  = Tile(20, 20, world_x, world_y, political_rgb+(255,), political_tile_id_value)
+                if tile_id_value == 0:
+                    tile            = na.Tile(20, 20, world_x, world_y, (0,0,0,0), tile_id_value)
+                    political_tile  = na.Tile(20, 20, world_x, world_y, political_rgb+(100,), political_tile_id_value)
+                else:
+                    tile            = na.Tile(20, 20, world_x, world_y, pixel_rgb+(255,), tile_id_value)
+                    political_tile  = na.Tile(20, 20, world_x, world_y, political_rgb+(255,), political_tile_id_value)
 
-        #         self.terrain_scene.add_sprite("1",tile)
-        #         self.political_scene.add_sprite("0", political_tile)
+                self.terrain_scene.add_sprite("1",tile)
+                self.political_scene.add_sprite("0", political_tile)
 
-        #         self.s_upper_terrain_layer.grid[x][y] = tile
-        #         self.s_political_layer.grid[x][y] = political_tile    
+                self.s_upper_terrain_layer.grid[x][y] = tile
+                self.s_political_layer.grid[x][y] = political_tile    
 
         for icon in self.icons['locations']:
             icon_path = str(ICON_ID_MAP.get(icon['id']))+".png"
-            icon_object = Infocon(icon_path,1,
+            icon_object = na.Icon(icon_path,1,
                            icon['x'],
                            icon['y'],
                            0.0,
@@ -1020,29 +874,37 @@ class Game(arcade.Window):
         self.process_completed_chunks()
 
         for icon in self.info_scene_list:
-            if icon.icon_id >= 25 and icon.icon_id <= 33:
-                icon.scale = max(1.0-(self.camera.zoom/3),0.003)
+            icon.scale = max(1.0-(self.camera.zoom/3),0.05)
+            if icon.country_id == 0:
+                icon.color = (255,255,255,255)
             else:
-                icon.scale = max(1.0-(self.camera.zoom/3),0.05)
+                icon.color = REVERSED_POLITICAL_ID_MAP.get(int(icon.country_id), (255,0,0,255))+(255,)
 
     def on_draw(self):
         self.camera.use() 
         self.clear() 
+        arcade.draw_lbwh_rectangle_filled(-10,-10,12000,6000,(0,0,127,255))
+        arcade.draw_lbwh_rectangle_filled(-10,-10,12000,-6000,(0,0,127,255))
         self.terrain_scene.draw(pixelated=True)
 
         if self.political_background == True:
             arcade.draw_lbwh_rectangle_filled(-10,-10,12000,6000,(0,0,0,255))
             arcade.draw_lbwh_rectangle_filled(-10,-10,12000,-6000,(0,0,0,255))
 
+        arcade.draw_line(-10,-10,12000,-10,(80,80,80),2)
+
         self.political_scene.draw(pixelated=True)
 
         for start, end in self.icons['lines']:
             arcade.draw_line(start[0],start[1],end[0],end[1],(255,0,0,255),line_width=0.1)
 
+        if self.current_position_world:
+            if self.drawing_line_start and self.drawing_line_end is None:
+                arcade.draw_line(self.drawing_line_start[0],self.drawing_line_start[1],self.current_position_world[0],self.current_position_world[1],(255,0,0,255),line_width=2)
+
         self.info_scene.draw(pixelated=True)
 
         if self.selected_world_icon:
-
             if self.rotating_the_icon:
                 arcade.draw_circle_outline(self.selected_world_icon.position[0],self.selected_world_icon.position[1],max(32-(self.camera.zoom*3),4),(255,255,255,255),1,0,12)
             elif self.moving_the_icon:
@@ -1190,7 +1052,11 @@ class Game(arcade.Window):
                                 print(f"no tiles returned to selection ...")
                 
                 elif self.camera.zoom < 2.5:
-                    political_tile_to_edit = self.political_layer.__getitem__((tile_x,tile_y))
+                    if not tile_y < 0:
+                        political_tile_to_edit = self.political_layer.__getitem__((tile_x,tile_y))
+                    else:
+                        political_tile_to_edit = self.s_political_layer.__getitem__((tile_x,300-abs(tile_y)))
+
                     if political_tile_to_edit:
                         political_tile_to_edit.color = REVERSED_POLITICAL_ID_MAP.get(self.selected_country_id,0)
                         political_tile_to_edit.id_ = self.selected_country_id
@@ -1211,7 +1077,7 @@ class Game(arcade.Window):
                     else:
                         icon_path = str(ICON_ID_MAP.get(self.selected_icon_id))+".png"
                         generated_unique_id:int = random.randrange(1000,9999)
-                        icon = Infocon(icon_path,1,world_x,world_y,0.0,self.selected_icon_id,"",0,0,icon_path,generated_unique_id,0)
+                        icon = na.Icon(icon_path,1,world_x,world_y,0.0,self.selected_icon_id,"",0,0,icon_path,generated_unique_id,0)
                         self.info_scene.add_sprite("0",icon)
                         self.info_scene_list.append(icon)
                         self.icons["locations"].append({
@@ -1227,8 +1093,8 @@ class Game(arcade.Window):
                         })
                         #self.selected_icon_id = None
 
-                nearby_icon = self.find_icon_near(world_x, world_y, radius=10)
-                nearby_line = self.find_line_near(world_x, world_y, radius=10)
+                nearby_icon = self.find_element_near(world_x, world_y, elements=self.info_scene_list, radius=24)
+                nearby_line = self.find_line_near(world_x, world_y, radius=24)
                 if nearby_icon:
                     self.selected_world_icon = nearby_icon
                     nearby_icon_dict = None
@@ -1344,7 +1210,7 @@ class Game(arcade.Window):
                             ).with_background(color=arcade.types.Color(20,20,20,255))
                         )
 
-                        @edit_country_button.event("on_change")
+                        @text_input.event("on_change")
                         def on_text_change(event: arcade.gui.UIOnChangeEvent):
                             nearby_icon.country_id = event.new_value
                             nearby_icon_dict['country_id'] = event.new_value
@@ -1449,7 +1315,7 @@ class Game(arcade.Window):
             if self.rotating_the_icon:
                 try:
                     current_angle = math.atan2(world_x - self.selected_world_icon.position[0], world_y - self.selected_world_icon.position[1])
-                    delta_angle = (((current_angle - self.previous_angle + math.pi) % (2 * math.pi)) - math.pi) * 100#???
+                    delta_angle = (((current_angle - self.previous_angle + math.pi) % (2 * math.pi)) - math.pi) * (180/math.pi)
                     self.selected_world_icon.angle += delta_angle
                     self.previous_angle = current_angle
 
@@ -1497,7 +1363,11 @@ class Game(arcade.Window):
                                 print(f"no tiles returned to selection ...")
                 
                 elif self.camera.zoom < 2.5:
-                    political_tile_to_edit = self.political_layer.__getitem__((tile_x,tile_y))
+                    if not tile_y < 0:
+                        political_tile_to_edit = self.political_layer.__getitem__((tile_x,tile_y))
+                    else:
+                        political_tile_to_edit = self.s_political_layer.__getitem__((tile_x,300-abs(tile_y)))
+
                     if political_tile_to_edit:
                         political_tile_to_edit.color = REVERSED_POLITICAL_ID_MAP.get(self.selected_country_id,0)
                         political_tile_to_edit.id_ = self.selected_country_id
