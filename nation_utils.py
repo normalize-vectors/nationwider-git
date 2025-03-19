@@ -4,15 +4,13 @@ import os
 
 class Icon(arcade.Sprite):
     """An icon on the map using a texture."""
-    def __init__(self, path_or_texture = None, scale = 1, center_x = 0, center_y = 0, angle = 0, icon_id = 0, text="", people_count = 0, angle_rot = 0, typename = "", unique_id = 1000, country_id = 0, **kwargs):
+    def __init__(self, path_or_texture = None, scale = 1, center_x = 0, center_y = 0, angle = 0, icon_id = 0, angle_rot = 0, unique_id = 1000, country_id = 0, quality = 1, **kwargs):
         super().__init__(path_or_texture, scale, center_x, center_y, angle, **kwargs)
         self.icon_id = icon_id
-        self.text = text
-        self.people_count = people_count
-        self.angle_rot = angle_rot
-        self.typename = typename
         self.unique_id = unique_id
+        self.angle_rot = angle_rot
         self.country_id = country_id
+        self.quality = quality
 
 class Toast(arcade.gui.UILabel):
     """Info notification."""
