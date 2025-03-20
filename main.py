@@ -236,6 +236,18 @@ class Game(arcade.Window):
         self.ui = arcade.gui.UIManager()
         self.ui.enable()
 
+        # < - DEFINING GRIDS FOR ALL LAYERS #GRIDS
+        self.political_layer        = na.GridLayer((600,300)   ,20)
+        self.upper_terrain_layer    = na.GridLayer((600,300)   ,20)
+        self.lower_terrain_layer    = na.GridLayer((12000,6000),1 )
+
+        self.s_political_layer      = na.GridLayer((600,300)   ,20)
+        self.s_upper_terrain_layer  = na.GridLayer((600,300)   ,20)
+        self.icons = {
+            'locations': [],
+            'lines': []
+        }
+
         load_menu_anchor = self.ui.add(arcade.gui.UIAnchorLayout())
         self.load_menu_buttons = load_menu_anchor.add(arcade.gui.UIBoxLayout(space_between=2), anchor_x="center", anchor_y="center")
         savefiles = na.get_all_files('map_data')
@@ -256,18 +268,6 @@ class Game(arcade.Window):
         anchor = self.ui.add(arcade.gui.UIAnchorLayout())
         self.toasts = anchor.add(arcade.gui.UIBoxLayout(space_between=2), anchor_x="left", anchor_y="top")
         self.toasts.with_padding(all=10)
-
-        # < - DEFINING GRIDS FOR ALL LAYERS #GRIDS
-        self.political_layer        = na.GridLayer((600,300)   ,20)
-        self.upper_terrain_layer    = na.GridLayer((600,300)   ,20)
-        self.lower_terrain_layer    = na.GridLayer((12000,6000),1 )
-
-        self.s_political_layer      = na.GridLayer((600,300)   ,20)
-        self.s_upper_terrain_layer  = na.GridLayer((600,300)   ,20)
-        self.icons = {
-            'locations': [],
-            'lines': []
-        }
 
         geographic_icon  = arcade.load_texture("icons/geo_map_icon.png")
         political_icon   = arcade.load_texture("icons/pol_map_icon.png")
