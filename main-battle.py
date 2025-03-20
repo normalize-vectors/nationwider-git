@@ -2,6 +2,7 @@ from array import array
 from functools import partial
 import math
 import random
+import time
 import arcade
 import arcade.gui
 import arcade.gui.widgets
@@ -93,6 +94,14 @@ TILE_ID_MAP = {
     42: (102, 32, 137)    # DIVINE EDEN
 }
 
+QUALITY_COLOR_MAP = {
+    1: (125,125,125),
+    2: (150,150,150),
+    3: (175,175,175),
+    4: (200,200,200),
+    5: (255,255,255)
+}
+
 # -
 
 class Game(arcade.Window):
@@ -128,6 +137,7 @@ class Game(arcade.Window):
         self.info_scene_list = []
 
         self.terrain_layer = na.GridLayer((200,200),20)
+        self.terrain_layer.grid[:] = np.zeros((200,200),dtype=np.uint8)
         self.icons = {
             'locations': [],
             'trenches': [],
@@ -137,6 +147,37 @@ class Game(arcade.Window):
 
         self.ui = arcade.gui.UIManager()
         self.ui.enable()
+
+        load_menu_anchor = self.ui.add(arcade.gui.UIAnchorLayout())
+        self.load_menu_buttons = load_menu_anchor.add(arcade.gui.UIBoxLayout(space_between=2), anchor_x="center", anchor_y="center")
+        savefiles = na.get_all_files('battlemap_data')
+
+        if savefiles:
+            for i, savefile in enumerate(savefiles):
+                save_file_button = arcade.gui.UIFlatButton(width=300,height=64,text=f"{savefile}")
+
+                self.load_menu_buttons.add(save_file_button)
+
+                @save_file_button.event
+                def on_click(event: arcade.gui.UIOnClickEvent, savename=savefile, index=i):
+                    self.on_clicked_load(savename)
+                    self.load_menu_buttons.clear()
+        else:
+            self.setup()
+
+        center_anchor = self.ui.add(arcade.gui.UIAnchorLayout())
+        self.popupmenu_buttons = center_anchor.add(
+            arcade.gui.UIBoxLayout(vertical=True, space_between=4),
+            anchor_x="center",
+            anchor_y="center"
+        )
+        self.popupmenu_buttons.visible = False
+
+        save_button = arcade.gui.UIFlatButton(width=200,height=64,text="Save map")
+        @save_button.event
+        def on_click(event: arcade.gui.UIOnClickEvent):
+            self.on_clicked_save()
+        self.popupmenu_buttons.add(save_button)
 
         self.icon_data_anchor = self.ui.add(arcade.gui.UIAnchorLayout())
         self.icon_description = self.icon_data_anchor.add(
@@ -195,6 +236,7 @@ class Game(arcade.Window):
             anchor_x="center",
             anchor_y="bottom"
         )
+        biome_palette_buttons.visible = False
 
         anchor = self.ui.add(arcade.gui.UIAnchorLayout())
         layer_buttons = anchor.add(
@@ -297,7 +339,7 @@ class Game(arcade.Window):
                 self.selected_tile_id = idx
                 self.on_notification_toast(f"Selected {name}")
 
-    def on_notification_toast(self, message:str="", warn:bool=False, error:bool=False):
+    def on_notification_toast(self, message:str="", warn:bool=False, error:bool=False, success:bool=False):
         toast = na.Toast(message, duration=2)
 
         toast.update_font(
@@ -305,21 +347,13 @@ class Game(arcade.Window):
             font_size=12,
             bold=True
         )
-        toast.with_background(color=arcade.uicolor.BLUE_PETER_RIVER)
 
+        toast.with_background(color=arcade.uicolor.BLUE_PETER_RIVER)
+        if success == True:
+            toast.with_background(color=arcade.uicolor.GREEN_EMERALD)
         if warn == True:
-            toast.update_font(
-                font_color=arcade.uicolor.BLACK,
-                font_size=12,
-                bold=True
-            )
             toast.with_background(color=arcade.uicolor.YELLOW_ORANGE)
         if error == True:
-            toast.update_font(
-                font_color=arcade.uicolor.BLACK,
-                font_size=12,
-                bold=True
-            )
             toast.with_background(color=arcade.uicolor.RED_POMEGRANATE)
 
         toast.with_padding(all=10)
@@ -343,21 +377,66 @@ class Game(arcade.Window):
             
         # Return closest element
         return min(elements_within_radius, key=distance)
+    
+    def find_line_near(self, x, y, radius=5):
+        """Finds closest line within given radius."""
+        if not self.icons['lines']:
+            return None
+        
+        lines_within_radius = [
+            line for line in self.icons['lines']
+            if math.sqrt((line[0][0] - x) ** 2 + (line[0][1] - y) ** 2) <= radius
+        ]
+
+        if not lines_within_radius:
+            return None
+        
+        return min(
+            lines_within_radius,
+            key=lambda line: math.sqrt((line[0][0] - x) ** 2 + (line[0][1] - y) ** 2)
+        )
+
+    def on_clicked_load(self, filename: str):
+        loaded_data = np.load(filename,allow_pickle=True)
+        print(f"loading {filename}")
+        loaded_ground_data = loaded_data['battlemap_a']
+        self.terrain_layer.grid[:]= loaded_ground_data
+
+        icons_array = loaded_data['battlemap_c']
+        self.icons = icons_array.item()
+
+        self.setup()
+
+    def on_clicked_save(self):
+        try:
+            self.on_notification_toast("Trying to save map ...")
+            ground_grid = np.empty((200,200),dtype=np.uint8)
+
+            def extract_id(cell):
+                return cell.id_ if isinstance(cell, na.Tile) else cell
+            
+            extract_attribute = np.vectorize(extract_id, otypes=[np.uint8])
+            ground_grid = extract_attribute(self.terrain_layer.grid)
+
+            np.savez_compressed(f"battlemap_data/battlemap_{time.localtime().tm_year}_{time.localtime().tm_mon}_{time.localtime().tm_mday}_{time.localtime().tm_hour}_{time.localtime().tm_min}_{time.localtime().tm_sec}.npz",
+                                battlemap_a=ground_grid,
+                                battlemap_c=np.array(self.icons)
+                                )
+            self.on_notification_toast("Saved map ...",success=True)
+        except Exception as e: 
+            self.on_notification_toast("Failed to save map ... "+str(e),error=True)
 
     def setup(self):
         for x in range(200):
             if x % 50 == 0:
-                print(f"+ Progress: {x} north rows loaded...")
+                print(f"+ Progress: {x} rows loaded...")
             for y in range(200):
                 tile_id_value = self.terrain_layer.grid[x][y]
                 pixel_rgb = TILE_ID_MAP.get(tile_id_value,(0,0,127))
                 world_x = (x * 20)
                 world_y = (y * 20)
 
-                if tile_id_value == 0:
-                    tile = na.Tile(20, 20, world_x, world_y, (0,0,0,0), tile_id_value)
-                else:
-                    tile = na.Tile(20, 20, world_x, world_y, pixel_rgb+(255,), tile_id_value)
+                tile = na.Tile(20, 20, world_x, world_y, pixel_rgb+(255,), tile_id_value)
 
                 self.terrain_scene.add_sprite("0",tile)
             
@@ -370,12 +449,10 @@ class Game(arcade.Window):
                            icon['y'],
                            0.0,
                            icon['id'],
-                           icon['text'],
-                           icon['people_count'],
                            icon['angle_rot'],
-                           icon['typename'],
                            icon['unique_id'],
-                           icon['country_id']
+                           icon['country_id'],
+                           icon['quality']
                         )
             icon_object.angle = icon['angle_rot']
             self.info_scene.add_sprite("0",icon_object)
@@ -393,6 +470,9 @@ class Game(arcade.Window):
 
         self.zoomed_speed_mod = max(self.zoomed_speed_mod+self.zoomed_speed_mod_adder, 0.01)
         self.zoomed_speed_mod = min(self.zoomed_speed_mod, 2.0)
+
+        for icon in self.info_scene_list:
+            icon.color = QUALITY_COLOR_MAP.get(icon.quality, (255,0,0,255))
 
     def on_draw(self):
         self.camera.use() 
@@ -465,6 +545,8 @@ class Game(arcade.Window):
                 self.rotating_the_icon = not self.rotating_the_icon
         if symbol   == arcade.key.E:
             self.mouse_click_anchor.visible = not self.mouse_click_anchor.visible
+        if symbol   == arcade.key.ESCAPE:
+            self.popupmenu_buttons.visible = not self.popupmenu_buttons.visible
 
         if symbol == arcade.key.MINUS or symbol == arcade.key.NUM_SUBTRACT:
             if self.camera.zoom >= 0.1 and self.camera.zoom <= 0.125:
@@ -562,22 +644,20 @@ class Game(arcade.Window):
                     else:
                         icon_path = str(ICON_ID_MAP.get(self.selected_icon_id))+".png"
                         generated_unique_id:int = random.randrange(1000,9999)
-                        icon = na.Icon(icon_path,1,world_x,world_y,0.0,self.selected_icon_id,"",0,0,icon_path,generated_unique_id,0)
+                        icon = na.Icon(icon_path,1,world_x,world_y,0.0,self.selected_icon_id,0,generated_unique_id,0,1)
                         self.info_scene.add_sprite("0",icon)
                         self.info_scene_list.append(icon)
                         self.icons["locations"].append({
                             "id": self.selected_icon_id,
                             "x": world_x,
                             "y": world_y,
-                            "text": "",
-                            "people_count": 0,
                             "angle_rot": 0,
-                            "typename": icon_path,
                             "unique_id": generated_unique_id,
-                            "country_id": 0
+                            "country_id": 0,
+                            "quality": 1
                         })
 
-                nearby_icon = self.find_element_near(world_x, world_y, self.info_scene_list, radius=64)
+                nearby_icon = self.find_element_near(world_x, world_y, elements=self.info_scene_list, radius=24)
                 if nearby_icon:
                     self.selected_world_icon = nearby_icon
                     nearby_icon_dict = None
@@ -585,22 +665,17 @@ class Game(arcade.Window):
                     for icon in self.icons['locations']:
                         if icon['unique_id'] == nearby_icon.unique_id:
                             nearby_icon_dict = icon
-                            self.on_notification_toast(f"Found corresponding icon in dict. index;{nearby_icon_dict_index}")
+                            self.on_notification_toast(f"Found icon;{nearby_icon_dict_index};quality={nearby_icon_dict['quality']};")
                             break
                         else:
                             nearby_icon_dict_index+=1
                     self.icon_description.clear()
-
-                    label = arcade.gui.UITextArea(
-                        text=f"{nearby_icon.typename}\nPeople count: {nearby_icon.people_count}\n{nearby_icon.text}",
-                        multiline=True,
-                        width=320,
-                        height=64
-                    ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
                     move_button_icon            = arcade.load_texture("icons/move_icon.png")
                     remove_button_icon          = arcade.load_texture("icons/remove_icon.png")
                     rotate_button_icon          = arcade.load_texture("icons/rotate_icon.png")
                     rotate_reset_button_icon    = arcade.load_texture("icons/rotate_reset_icon.png")
+                    up_button_icon              = arcade.load_texture("icons/up_icon.png")
+                    down_button_icon            = arcade.load_texture("icons/down_icon.png")
                     move_button = arcade.gui.UIFlatButton(text="", width=64, height=64)
                     move_button.add(
                         child=arcade.gui.UIImage(
@@ -645,59 +720,45 @@ class Game(arcade.Window):
                         anchor_y="center"
                     )
                     
-                    edit_text_button = arcade.gui.UIFlatButton(text="edit text",width=80,height=48)
-                    @edit_text_button.event
+                    upgrade_button = arcade.gui.UIFlatButton(text="", width=64, height=64)
+                    upgrade_button.add(
+                        child=arcade.gui.UIImage(
+                            texture=up_button_icon,
+                            width =64,
+                            height=64,
+                        ),
+                        anchor_x="center",
+                        anchor_y="center"
+                    )
+
+                    downgrade_button = arcade.gui.UIFlatButton(text="", width=64, height=64)
+                    downgrade_button.add(
+                        child=arcade.gui.UIImage(
+                            texture=down_button_icon,
+                            width =64,
+                            height=64,
+                        ),
+                        anchor_x="center",
+                        anchor_y="center"
+                    )
+
+                    @downgrade_button.event
                     def on_click(event: arcade.gui.UIOnClickEvent):
-                        text_input = self.icon_description.add(
-                            arcade.gui.UIInputText(
-                                width=128,
-                                height=32,
-                                font_size=12,
-                                border_color=arcade.uicolor.GRAY_CONCRETE,
-                                border_width=2
-                            ).with_background(color=arcade.types.Color(20,20,20,255))
-                        )
+                        if nearby_icon.quality > 1:
+                            nearby_icon.quality -= 1
+                            nearby_icon_dict['quality'] -= 1
+                            self.on_notification_toast("downgraded icon")
+                        else:
+                            self.on_notification_toast(f"icon is already at {nearby_icon.quality} !",error=True)
 
-                        @text_input.event("on_change")
-                        def on_text_change(event: arcade.gui.UIOnChangeEvent):
-                            nearby_icon.text = event.new_value
-                            nearby_icon_dict['text'] = event.new_value
-                    
-                    edit_number_button = arcade.gui.UIFlatButton(text="edit people",width=80,height=48)
-                    @edit_number_button.event
+                    @upgrade_button.event
                     def on_click(event: arcade.gui.UIOnClickEvent):
-                        text_input = self.icon_description.add(
-                            arcade.gui.UIInputText(
-                                width=128,
-                                height=32,
-                                font_size=12,
-                                border_color=arcade.uicolor.GRAY_CONCRETE,
-                                border_width=2
-                            ).with_background(color=arcade.types.Color(20,20,20,255))
-                        )
-
-                        @text_input.event("on_change")
-                        def on_text_change(event: arcade.gui.UIOnChangeEvent):
-                            nearby_icon.people_count = event.new_value
-                            nearby_icon_dict['people_count'] = event.new_value
-
-                    edit_country_button = arcade.gui.UIFlatButton(text="edit country",width=80,height=48)
-                    @edit_country_button.event
-                    def on_click(event: arcade.gui.UIOnClickEvent):
-                        text_input = self.icon_description.add(
-                            arcade.gui.UIInputText(
-                                width=128,
-                                height=32,
-                                font_size=12,
-                                border_color=arcade.uicolor.GRAY_CONCRETE,
-                                border_width=2
-                            ).with_background(color=arcade.types.Color(20,20,20,255))
-                        )
-
-                        @edit_country_button.event("on_change")
-                        def on_text_change(event: arcade.gui.UIOnChangeEvent):
-                            nearby_icon.country_id = event.new_value
-                            nearby_icon_dict['country_id'] = event.new_value
+                        if nearby_icon.quality < 5:
+                            nearby_icon.quality += 1
+                            nearby_icon_dict['quality'] += 1
+                            self.on_notification_toast("upgraded icon")
+                        else:
+                            self.on_notification_toast(f"icon is already at {nearby_icon.quality} !",error=True)
 
                     @rotate_button.event
                     def on_click(event: arcade.gui.UIOnClickEvent):
@@ -710,7 +771,7 @@ class Game(arcade.Window):
 
                     @move_button.event
                     def on_click(event: arcade.gui.UIOnClickEvent):
-                        self.moving_the_icon = True
+                        self.moving_the_icon = not self.moving_the_icon
 
                     @remove_button.event
                     def on_click(event: arcade.gui.UIOnClickEvent):
@@ -723,14 +784,12 @@ class Game(arcade.Window):
 
                         self.selected_world_icon = None
 
-                    self.icon_description.add(label)
                     self.icon_description.add(move_button)
                     self.icon_description.add(remove_button)
                     self.icon_description.add(rotate_button)
                     self.icon_description.add(rotate_reset_button)
-                    self.icon_description.add(edit_text_button)
-                    self.icon_description.add(edit_number_button)
-                    self.icon_description.add(edit_country_button)
+                    self.icon_description.add(upgrade_button)
+                    self.icon_description.add(downgrade_button)
                 else:
                     self.selected_world_icon = None
                     self.icon_description.clear()
@@ -844,7 +903,6 @@ class Game(arcade.Window):
 
 def main():
     game = Game(WIDTH, HEIGHT, "NATIONWIDER-BATTLEMAP")
-    game.setup()
     arcade.run()
 
 

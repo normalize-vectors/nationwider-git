@@ -240,15 +240,18 @@ class Game(arcade.Window):
         self.load_menu_buttons = load_menu_anchor.add(arcade.gui.UIBoxLayout(space_between=2), anchor_x="center", anchor_y="center")
         savefiles = na.get_all_files('map_data')
 
-        for i, savefile in enumerate(savefiles):
-            save_file_button = arcade.gui.UIFlatButton(width=300,height=64,text=f"{savefile}")
+        if savefiles:
+            for i, savefile in enumerate(savefiles):
+                save_file_button = arcade.gui.UIFlatButton(width=300,height=64,text=f"{savefile}")
 
-            self.load_menu_buttons.add(save_file_button)
+                self.load_menu_buttons.add(save_file_button)
 
-            @save_file_button.event
-            def on_click(event: arcade.gui.UIOnClickEvent, savename=savefile, index=i):
-                self.on_clicked_load(savename)
-                self.load_menu_buttons.clear()
+                @save_file_button.event
+                def on_click(event: arcade.gui.UIOnClickEvent, savename=savefile, index=i):
+                    self.on_clicked_load(savename)
+                    self.load_menu_buttons.clear()
+        else:
+            self.on_clicked_load('local_data/.default_mapdata.npz')
 
         anchor = self.ui.add(arcade.gui.UIAnchorLayout())
         self.toasts = anchor.add(arcade.gui.UIBoxLayout(space_between=2), anchor_x="left", anchor_y="top")
@@ -1195,7 +1198,7 @@ class Game(arcade.Window):
 
                     @move_button.event
                     def on_click(event: arcade.gui.UIOnClickEvent):
-                        self.moving_the_icon = True
+                        self.moving_the_icon = not self.moving_the_icon
 
                     @remove_button.event
                     def on_click(event: arcade.gui.UIOnClickEvent):
