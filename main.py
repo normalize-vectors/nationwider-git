@@ -912,7 +912,7 @@ class Game(arcade.Window):
             if self.editing_mode == True:
                 if self.camera.zoom >= 2.5:
                     crosshair_size = (self.editing_mode_size/8)
-                    crosshair_sprite = arcade.Sprite("crosshair.png",(crosshair_size,crosshair_size),self.current_position_world[0],self.current_position_world[1],0)
+                    crosshair_sprite = arcade.Sprite("icons/crosshair.png",(crosshair_size,crosshair_size),self.current_position_world[0],self.current_position_world[1],0)
                     arcade.draw_sprite(crosshair_sprite,pixelated=True)
                     arcade.draw_lrbt_rectangle_outline(round(self.current_position_world[0]-0.5),round(self.current_position_world[0]+0.5),round(self.current_position_world[1]-0.5),round(self.current_position_world[1]+0.5),color=(255,255,255,255),border_width=0.1)
                 else:

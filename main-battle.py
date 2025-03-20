@@ -502,7 +502,7 @@ class Game(arcade.Window):
         if self.current_position_world:
             if self.editing_mode == True:
                 crosshair_size = (self.editing_mode_size*2)
-                crosshair_sprite = arcade.Sprite("crosshair.png",(crosshair_size,crosshair_size),self.current_position_world[0],self.current_position_world[1],0)
+                crosshair_sprite = arcade.Sprite("icons/crosshair.png",(crosshair_size,crosshair_size),self.current_position_world[0],self.current_position_world[1],0)
                 arcade.draw_sprite(crosshair_sprite,pixelated=True)
                 arcade.draw_lbwh_rectangle_outline(round(self.current_position_world[0]/20)*20-10,round(self.current_position_world[1]/20)*20-10,20,20,(255,255,255,255),1)
             else:
