@@ -248,9 +248,16 @@ class Game(arcade.Window):
             'lines': []
         }
 
+        keybinds_anchor = self.ui.add(arcade.gui.UIAnchorLayout())
+        self.keybinds_box = keybinds_anchor.add(arcade.gui.UIBoxLayout(space_between=1), anchor_x="center", anchor_y="center")
+        self.is_keybind_box_disabled = False
+
         load_menu_anchor = self.ui.add(arcade.gui.UIAnchorLayout())
         self.load_menu_buttons = load_menu_anchor.add(arcade.gui.UIBoxLayout(space_between=2), anchor_x="center", anchor_y="center")
         savefiles = na.get_all_files('map_data')
+        with open('local_data/attributes.json') as attributes_file:
+            data = json.load(attributes_file)
+            self.is_keybind_box_disabled = data['keybinds_disable']
 
         if savefiles:
             for i, savefile in enumerate(savefiles):
@@ -820,6 +827,87 @@ class Game(arcade.Window):
 
                 self.s_upper_terrain_layer.grid[x][y] = tile
                 self.s_political_layer.grid[x][y] = political_tile    
+            
+        if self.is_keybind_box_disabled == False:
+            label = arcade.gui.UITextArea(
+                text=f"[ O ] - Editing mode",
+                width=200,
+                height=20,
+                font_size=10
+            ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
+            self.keybinds_box.add(label)
+            label = arcade.gui.UITextArea(
+                text=f"[ Scroll ] - Scrool zoom",
+                width=200,
+                height=20,
+                font_size=10
+            ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
+            self.keybinds_box.add(label)
+            label = arcade.gui.UITextArea(
+                text=f"[ + ] - Zoom in",
+                width=200,
+                height=20,
+                font_size=10
+            ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
+            self.keybinds_box.add(label)
+            label = arcade.gui.UITextArea(
+                text=f"[ - ] - Zoom out",
+                width=200,
+                height=20,
+                font_size=10
+            ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
+            self.keybinds_box.add(label)
+            label = arcade.gui.UITextArea(
+                text=f"[ RMB ] - Pan camera",
+                width=200,
+                height=20,
+                font_size=10
+            ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
+            self.keybinds_box.add(label)
+            label = arcade.gui.UITextArea(
+                text=f"[ LMB ] - Select/Place",
+                width=200,
+                height=20,
+                font_size=10
+            ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
+            self.keybinds_box.add(label)
+            label = arcade.gui.UITextArea(
+                text=f"[ M ] - Toggle moving mode",
+                width=200,
+                height=20,
+                font_size=10
+            ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
+            self.keybinds_box.add(label)
+            label = arcade.gui.UITextArea(
+                text=f"[ R ] - Toggle rotate mode",
+                width=200,
+                height=20,
+                font_size=10
+            ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
+            self.keybinds_box.add(label)
+
+            close_keybinds_button = arcade.gui.UIFlatButton(width=200,height=20,text="Close")
+            self.keybinds_box.add(close_keybinds_button)
+
+            @close_keybinds_button.event
+            def on_click(event: arcade.gui.UIOnClickEvent):
+                self.keybinds_box.clear()
+                self.keybinds_box.visible = False
+
+            toggle_keybinds_attribute = arcade.gui.UIFlatButton(width=200,height=20,text="Do not show again")
+            self.keybinds_box.add(toggle_keybinds_attribute)
+
+            @toggle_keybinds_attribute.event
+            def on_click(event: arcade.gui.UIOnClickEvent):
+                with open('local_data/attributes.json', 'r') as attributes_file:
+                    data = json.load(attributes_file)
+                    data['keybinds_disable'] = True
+
+                with open('local_data/attributes.json', 'w') as attributes_file:
+                    json.dump(data, attributes_file)
+
+                self.keybinds_box.clear()
+                self.keybinds_box.visible = False
 
         loader_thread = threading.Thread(
             target=self.background_loader, 
