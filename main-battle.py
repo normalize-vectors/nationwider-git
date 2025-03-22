@@ -427,9 +427,10 @@ class Game(arcade.Window):
             self.on_notification_toast("Failed to save map ... "+str(e),error=True)
 
     def setup(self):
+        print("?- Loading map")
         for x in range(200):
             if x % 50 == 0:
-                print(f"+ Progress: {x} rows loaded...")
+                print(f"O- Progress: {x} rows loaded...")
             for y in range(200):
                 tile_id_value = self.terrain_layer.grid[x][y]
                 pixel_rgb = TILE_ID_MAP.get(tile_id_value,(0,0,127))
@@ -442,6 +443,7 @@ class Game(arcade.Window):
             
                 self.terrain_layer.grid[x][y] = tile
 
+        print("?- Loading icons [1/1] ---")
         for icon in self.icons['locations']:
             icon_path = str(ICON_ID_MAP.get(icon['id']))+".png"
             icon_object = na.Icon(icon_path,1,
@@ -902,6 +904,7 @@ class Game(arcade.Window):
 
 
 def main():
+    print("GAME INITIALIZING ...")
     game = Game(WIDTH, HEIGHT, "NATIONWIDER-BATTLEMAP")
     arcade.run()
 

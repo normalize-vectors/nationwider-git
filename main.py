@@ -249,7 +249,7 @@ class Game(arcade.Window):
         }
 
         keybinds_anchor = self.ui.add(arcade.gui.UIAnchorLayout())
-        self.keybinds_box = keybinds_anchor.add(arcade.gui.UIBoxLayout(space_between=1), anchor_x="center", anchor_y="center")
+        self.keybinds_box = keybinds_anchor.add(arcade.gui.UIBoxLayout(space_between=0), anchor_x="center", anchor_y="center")
         self.is_keybind_box_disabled = False
 
         load_menu_anchor = self.ui.add(arcade.gui.UIAnchorLayout())
@@ -761,7 +761,7 @@ class Game(arcade.Window):
         )
 
     def setup(self):
-        print("Loading icons [1/3]")
+        print("?- Loading icons [1/3] ---")
         for icon in self.icons['locations']:
             icon_path = str(ICON_ID_MAP.get(icon['id']))+".png"
             icon_object = na.Icon(icon_path,1,
@@ -778,10 +778,10 @@ class Game(arcade.Window):
             self.info_scene.add_sprite("0",icon_object)
             self.info_scene_list.append(icon_object)
 
-        print("Loading north map [2/3]")
+        print("?- Loading north map [2/3] ---")
         for x in range(600):
             if x % 50 == 0:
-                print(f"+ Progress: {x} north rows loaded...")
+                print(f"O- Progress: {x} north rows loaded...")
             for y in range(300):
                 tile_id_value = self.upper_terrain_layer.grid[x][y]
                 political_tile_id_value = self.political_layer.grid[x][y]
@@ -803,10 +803,10 @@ class Game(arcade.Window):
                 self.upper_terrain_layer.grid[x][y] = tile
                 self.political_layer.grid[x][y] = political_tile
 
-        print("Loading south map [3/3]")
+        print("?- Loading south map [3/3] ---")
         for x in range(600):
             if x % 50 == 0:
-                print(f"+ Progress: {x} south rows loaded...")
+                print(f"O- Progress: {x} south rows loaded...")
             for y in range(300):
                 tile_id_value = self.s_upper_terrain_layer.grid[x][y]
                 political_tile_id_value = self.s_political_layer.grid[x][y]
@@ -829,6 +829,7 @@ class Game(arcade.Window):
                 self.s_political_layer.grid[x][y] = political_tile    
             
         if self.is_keybind_box_disabled == False:
+            print("?- Loading keybind popup")
             label = arcade.gui.UITextArea(
                 text=f"[ O ] - Editing mode",
                 width=200,
@@ -886,7 +887,7 @@ class Game(arcade.Window):
             ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
             self.keybinds_box.add(label)
 
-            close_keybinds_button = arcade.gui.UIFlatButton(width=200,height=20,text="Close")
+            close_keybinds_button = arcade.gui.UIFlatButton(width=200,height=20,text="Close").with_background(color=arcade.types.Color(25,25,25,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
             self.keybinds_box.add(close_keybinds_button)
 
             @close_keybinds_button.event
@@ -894,7 +895,7 @@ class Game(arcade.Window):
                 self.keybinds_box.clear()
                 self.keybinds_box.visible = False
 
-            toggle_keybinds_attribute = arcade.gui.UIFlatButton(width=200,height=20,text="Do not show again")
+            toggle_keybinds_attribute = arcade.gui.UIFlatButton(width=200,height=20,text="Don't show again").with_background(color=arcade.types.Color(25,25,25,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
             self.keybinds_box.add(toggle_keybinds_attribute)
 
             @toggle_keybinds_attribute.event
@@ -909,12 +910,16 @@ class Game(arcade.Window):
                 self.keybinds_box.clear()
                 self.keybinds_box.visible = False
 
+            print("O- Loaded keybinds popup")
+
         loader_thread = threading.Thread(
             target=self.background_loader, 
             args=(self.chunk_request_queue, self.chunk_result_queue, self.lower_terrain_layer.grid), 
             daemon=True
         )
+        print(f"?- Starting background thread:{loader_thread.name}")
         loader_thread.start()
+        print(f"O- Started backgroun thread:{loader_thread.name}")
 
     def on_resize(self, width, height):
         self.resized_size = width, height
@@ -1490,6 +1495,7 @@ class Game(arcade.Window):
 # ---
 
 def main():
+    print("GAME INITIALIZING ...")
     game = Game(WIDTH, HEIGHT, "NATIONWIDER")
     # game.setup()
     arcade.run()
