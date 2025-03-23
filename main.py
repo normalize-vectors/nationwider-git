@@ -25,10 +25,10 @@ def get_pixel_coordinates(image_path:str) -> list:
     img_array = np.array(img)
 
     coordinates = []
-    for y in range(8):
-        for x in range(8):
+    for y in range(16):
+        for x in range(16):
             if img_array[y, x].any() > 0:
-                rel_y = 7 - y
+                rel_y = 15 - y
                 rel_x = x
                 coordinates.append((rel_x, rel_y))
     
