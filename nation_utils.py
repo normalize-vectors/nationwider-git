@@ -1,4 +1,5 @@
 import arcade
+import arcade.gui
 import numpy
 import os
 
@@ -27,9 +28,9 @@ class Toast(arcade.gui.UILabel):
             self.parent.remove(self)
 
 class Tile(arcade.SpriteSolidColor):
+    __slots__ = ('id_',)
     def __init__(self, width, height, x, y, color, id_):
-        super().__init__(width, height, x, y, arcade.color.WHITE)
-        self.color = color
+        super().__init__(width, height, x, y, color=color)
         self.id_ = id_
 
 class GridLayer():
