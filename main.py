@@ -1,212 +1,40 @@
-from array import array
-import math
+import itertools
 import arcade
 import arcade.gui
 import arcade.gui.widgets
+import math
 import numpy as np
-from PIL import Image
 import threading
 import queue
-from dataclasses import dataclass
-import json
 import random
 import nation_utils as na
 import time
+import os
+import multiprocessing
+import concurrent.futures as futuress
 # display settings; ts pmo fr rn 
-print("?- setting up local view variables ...")
 WIDTH, HEIGHT = 1920, 1080
 SCREEN_SIZE = (WIDTH, HEIGHT)
 RESIZED_SIZE = 1920, 1080
-print("O- view variables set up")
 
-def get_pixel_coordinates(image_path:str) -> list:
-    img = Image.open(image_path)
+if __name__ == "__main__":
+    print("?- checking for imagefiles ...")
+    try:
+        geographic_icon  = arcade.load_texture("icons/geo_map_icon.png")
+        political_icon   = arcade.load_texture("icons/pol_map_icon.png")
+        information_icon = arcade.load_texture("icons/inf_map_icon.png")
+        geographic_palette_icon = arcade.load_texture("icons/geo_palette_icon.png")
+        political_palette_icon  = arcade.load_texture("icons/pol_palette_icon.png")
+        print("O- imagefiles found and loaded")
+    except:
+        print(f"X- {Exception}: imagefiles not found")
 
-    img_array = np.array(img)
-
-    coordinates = []
-    for y in range(16):
-        for x in range(16):
-            if img_array[y, x].any() > 0:
-                rel_y = 15 - y
-                rel_x = x
-                coordinates.append((rel_x, rel_y))
-    
-    return coordinates
-
-ID_MAP = {
-    (0,0,0)         : 255,# CLEAR TILE [ NONE ]
-    (0, 0, 127)     : 0,  # WATER
-    (99, 173, 95)   : 1,  # COLD PLAINS
-    (52, 72, 40)    : 2,  # BOREAL FOREST
-    (10, 87, 6)     : 3,  # DECIDIOUS FOREST
-    (16, 59,  17)   : 4,  # CONIFEROUS FOREST
-    (64, 112, 32)   : 5,  # TROPICAL FOREST
-    (80, 96, 48)    : 6,  # SWAMPLAND
-    (7, 154, 0)     : 7,  # PLAINS
-    (12, 172, 0)    : 8,  # PRAIRIE
-    (124, 156, 0)   : 9,  # SAVANNA
-    (80, 80, 64)    : 10, # MARSHLAND
-    (64, 80, 80)    : 11, # MOOR
-    (112, 112, 64)  : 12, # STEPPE
-    (64, 64, 16)    : 13, # TUNDRA
-    (255, 186, 0)   : 14, # MAGMA
-    (112, 80, 96)   : 15, # CANYONS
-    (132, 132, 132) : 16, # MOUNTAINS
-    (112, 112, 96)  : 17, # STONE DESERT
-    (64, 64, 57)    : 18, # CRAGS
-    (192, 192, 192) : 19, # SNOWLANDS
-    (224, 224, 224) : 20, # ICE PLAINS
-    (112, 112, 32)  : 21, # BRUSHLAND
-    (253, 157, 24)  : 22, # RED SANDS
-    (238, 224, 192) : 23, # SALT FLATS
-    (255, 224, 160) : 24, # COASTAL DESERT
-    (255, 208, 144) : 25, # DESERT
-    (128, 64, 0)    : 26, # WETLAND
-    (59, 29, 10)    : 27, # MUDLAND
-    (84, 65, 65)    : 28, # HIGHLANDS/FOOTHILLS
-    # SOUTH MAP ADDITIONS
-    (170, 153, 153) : 29, # ABYSSAL WASTE
-    (182, 170, 191) : 30, # PALE WASTE
-    (51, 102, 153)  : 31, # ELYSIAN FOREST
-    (10, 59, 59)    : 32, # ELYSIAN JUNGLE
-    (203, 99, 81)   : 33, # VOLCANIC WASTES
-    (121, 32, 32)   : 34, # IGNEOUS ROCKLAND
-    (59, 10, 10)    : 35, # CRIMSON FOREST
-    (192, 176, 80)  : 36, # FUNGAL FOREST
-    (153, 204, 0)   : 37, # SULFURIC FIELDS
-    (240, 240, 187) : 38, # LIMESTONE DESERT
-    (255, 163, 255) : 39, # DIVINE FIELDS
-    (170, 48, 208)  : 40, # DIVINE MEADOW
-    (117, 53, 144)  : 41, # DIVINE WOODLAND
-    (102, 32, 137)  : 42 # DIVINE EDEN
-}
-
-REVERSED_ID_MAP = {
-    255: (0, 0, 0),       # CLEAR TILE [ NONE ]
-    254: (53, 53, 53),    # POLITICAL LAND
-    253: (53, 53, 53),    # POLITICAL WATER
-    0: (0, 0, 127),       # WATER
-    1: (99, 173, 95),     # COLD PLAINS
-    2: (52, 72, 40),      # BOREAL FOREST
-    3: (10, 87, 6),       # DECIDUOUS FOREST
-    4: (16, 59, 17),      # CONIFEROUS FOREST
-    5: (64, 112, 32),     # TROPICAL FOREST
-    6: (80, 96, 48),      # SWAMPLAND
-    7: (7, 154, 0),       # PLAINS
-    8: (12, 172, 0),      # PRAIRIE
-    9: (124, 156, 0),     # SAVANNA
-    10: (80, 80, 64),     # MARSHLAND
-    11: (64, 80, 80),     # MOOR
-    12: (112, 112, 64),   # STEPPE
-    13: (64, 64, 16),     # TUNDRA
-    14: (255, 186, 0),    # MAGMA
-    15: (112, 80, 96),    # CANYONS
-    16: (132, 132, 132),  # MOUNTAINS
-    17: (112, 112, 96),   # STONE DESERT
-    18: (64, 64, 57),     # CRAGS
-    19: (192, 192, 192),  # SNOWLANDS
-    20: (224, 224, 224),  # ICE PLAINS
-    21: (112, 112, 32),   # BRUSHLAND
-    22: (253, 157, 24),   # RED SANDS
-    23: (238, 224, 192),  # SALT FLATS
-    24: (255, 224, 160),  # COASTAL DESERT
-    25: (255, 208, 144),  # DESERT
-    26: (128, 64, 0),     # WETLAND
-    27: (59, 29, 10),     # MUDLAND
-    28: (84, 65, 65),     # HIGHLANDS/FOOTHILLS
-    # SOUTH MAP ADDITIONS
-    29: (170, 153, 153),  # ABYSSAL WASTE
-    30: (182, 170, 191),  # PALE WASTE
-    31: (51, 102, 153),   # ELYSIAN FOREST
-    32: (10, 59, 59),     # ELYSIAN JUNGLE
-    33: (203, 99, 81),    # VOLCANIC WASTES
-    34: (121, 32, 32),    # IGNEOUS ROCKLAND
-    35: (59, 10, 10),     # CRIMSON FOREST
-    36: (192, 176, 80),   # FUNGAL FOREST
-    37: (153, 204, 0),    # SULFURIC FIELDS
-    38: (240, 240, 187),  # LIMESTONE DESERT
-    39: (255, 163, 255),  # DIVINE FIELDS
-    40: (170, 48, 208),   # DIVINE MEADOW
-    41: (117, 53, 144),   # DIVINE WOODLAND
-    42: (102, 32, 137)    # DIVINE EDEN
-}
-
-REVERSED_POLITICAL_ID_MAP = {
-    0   :   (53, 53, 53), # wilderness
-    1   :   (121, 7, 18),
-    2   :   (42, 86, 18),
-    3   :   (183, 197, 215),
-    4   :   (20, 209, 136),
-    5   :   (193, 38, 38),
-    6   :   (63, 63, 116), # Aurimukstis1
-    7   :   (10, 41, 93),
-    8   :   (18, 158, 165),
-    9   :   (20, 55, 17),
-    10  :   (196, 153, 0),
-    11  :   (243, 104, 6),
-    12  :   (84, 198, 223),
-    13  :   (95, 22, 151),
-    14  :   (48, 114, 214),
-    15  :   (78, 104, 77),
-    16  :   (0, 112, 141),
-    17  :   (243, 145, 51)
-}
-
-ICON_ID_MAP = {
-    0: "icons/structures/str_village",
-    1: "icons/structures/str_town",
-    2: "icons/structures/str_city",
-    3: "icons/structures/str_metro",
-    4: "icons/structures/str_outpost",
-    5: "icons/structures/str_keep",
-    6: "icons/structures/str_fortress",
-    7: "icons/structures/str_bastion",
-    # -
-    8: "icons/info/info_note",
-    9: "icons/info/info_line",
-    # - 
-    10:"icons/units/vessel_raft",
-    11:"icons/units/vessel_cog",
-    12:"icons/units/vessel_yawl",
-    13:"icons/units/vessel_brig",
-    14:"icons/units/vessel_corvette",
-    15:"icons/units/vessel_frigate",
-    16:"icons/units/vessel_cruiser",
-    17:"icons/units/vessel_battleship",
-    18:"icons/units/vessel_dreadnought",
-    19:"icons/units/vessel_carrier",
-    # -
-    20:"icons/units/unit_artillery",
-    21:"icons/units/unit_cavalry",
-    22:"icons/units/unit_heavy_artillery",
-    23:"icons/units/unit_heavy_cavalry",
-    24:"icons/units/unit_heavy_infantry",
-    25:"icons/units/unit_infantry",
-    26:"icons/units/unit_ranged_cavalry",
-    27:"icons/units/unit_ranged_infantry",
-    28:"icons/units/unit_skirmishers",
-    # -
-}
-
-QUALITY_COLOR_MAP = {
-    1: (125,125,125),
-    2: (150,150,150),
-    3: (175,175,175),
-    4: (200,200,200),
-    5: (255,255,255)
-}
-
-print("?- checking for imagefiles ...")
-try:
-    geographic_icon  = arcade.load_texture("icons/geo_map_icon.png")
-    political_icon   = arcade.load_texture("icons/pol_map_icon.png")
-    information_icon = arcade.load_texture("icons/inf_map_icon.png")
-    geographic_palette_icon = arcade.load_texture("icons/geo_palette_icon.png")
-    political_palette_icon  = arcade.load_texture("icons/pol_palette_icon.png")
-    print("O- imagefiles found and loaded")
-except:
-    print(f"X- {Exception}: imagefiles not found")
+    precomputed_terrain_colors = np.array([
+        na.TILE_ID_MAP.get(i, (255, 255, 255)) for i in range(256)
+    ])
+    precomputed_political_colors = np.array([
+        na.POLITICAL_ID_MAP.get(i, (53, 53, 53)) for i in range(256)
+    ])
 
 # ---
 
@@ -316,7 +144,7 @@ class Game(arcade.Window):
         self.load_menu_buttons = load_menu_anchor.add(arcade.gui.UIBoxLayout(space_between=2), anchor_x="center", anchor_y="center")
         savefiles = na.get_all_files('map_data')
 
-        attributes_data = self.get_attributes()
+        attributes_data = na.get_attributes()
         self.is_keybind_box_disabled = attributes_data['keybinds_disable']
 
         if savefiles:
@@ -361,7 +189,6 @@ class Game(arcade.Window):
         )
 
         self.mouse_brush_anchor = self.ui.add(arcade.gui.UIAnchorLayout())
-        self.mouse_brush_anchor.visible = False
         self.brush_menu_options = self.mouse_brush_anchor.add(
             arcade.gui.UIGridLayout(
                 column_count=10,
@@ -383,30 +210,10 @@ class Game(arcade.Window):
         ]
 
         self.brush_buttons = []
-        brushes = na.get_all_files('local_data/brushes')
-        for idx, path in enumerate(brushes):
-            icon_texture = arcade.load_texture(path)
-            button = arcade.gui.UIFlatButton(text="", width=64, height=64)
-            button.add(
-                child=arcade.gui.UIImage(texture=icon_texture, width=16, height=16),
-                anchor_x="center",
-                anchor_y="center"
-            )
-            self.brush_menu_options.add(button, idx % 10, idx // 10)
-            self.brush_buttons.append(button)
-
-            @button.event
-            def on_click(event: arcade.gui.UIOnClickEvent, idx=idx, path=path):
-                if idx == 0:
-                    self.selected_brush = None
-                    self.on_notification_toast(f"Deselected brush")
-                else:
-                    self.selected_brush = path
-                    self.on_notification_toast(f"Selected {path}")
 
         self.buttons = []
         for idx, name in enumerate(icon_names):
-            icon_texture = arcade.load_texture(f"{ICON_ID_MAP.get(idx)}.png")
+            icon_texture = arcade.load_texture(f"{na.ICON_ID_MAP.get(idx)}.png")
             button = arcade.gui.UIFlatButton(text="", width=64, height=64)
             button.add(
                 child=arcade.gui.UIImage(texture=icon_texture, width=64, height=64),
@@ -459,88 +266,8 @@ class Game(arcade.Window):
             self.on_clicked_save()
         self.popupmenu_buttons.add(save_button)
 
-        self.pallete = {
-            # --- 
-            "WATER": 0,
-            "COLD_PLAINS": 1,
-            "BOREAL_FOREST": 2,
-            "DECIDUOUS_FOREST": 3,
-            # --- 
-            "CONIFEROUS_FOREST": 4,
-            "TROPICAL_FOREST": 5,
-            "SWAMPLAND": 6,
-            "PLAINS": 7,
-            # --- 
-            "PRAIRIE": 8,
-            "SAVANNA": 9,
-            "MARSHLAND": 10,
-            "MOOR": 11,
-            # --- 
-            "STEPPE": 12,
-            "TUNDRA": 13,
-            "MAGMA": 14,
-            "CANYONS": 15,
-            # --- 
-            "MOUNTAINS": 16,
-            "STONE_DESERT": 17,
-            "CRAGS": 18,
-            "SNOWLANDS": 19,
-            # --- 
-            "ICE_PLAINS": 20,
-            "BRUSHLAND": 21,
-            "RED_SANDS": 22,
-            "SALT_FLATS": 23,
-            # --- 
-            "COASTAL_DESERT": 24,
-            "DESERT": 25,
-            "WETLAND": 26,
-            "MUDLAND": 27,
-            # --- 
-            "HIGHLANDS": 28,
-            "ABYSSAL_WASTE": 29,
-            "PALE_WASTE": 30,
-            "ELYSIAN_FOREST": 31,
-            # --- 
-            "ELYSIAN_JUNGLE": 32,
-            "VOLCANIC_WASTES": 33,
-            "IGNEOUS_ROCKLAND": 34,
-            "CRIMSON_FOREST": 35,
-            # --- 
-            "FUNGAL_FOREST": 36,
-            "SULFURIC_FIELDS": 37,
-            "LIMESTONE_DESERT": 38,
-            "DIVINE_FIELDS": 39,
-            # --- 
-            "DIVINE_MEADOW": 40,
-            "DIVINE_WOODLAND": 41,
-            "DIVINE_EDEN": 42
-            # ...
-            # --- 
-        }
-
-        self.country_pallete =  {
-            "wilderness"        : 0,
-            "DragonEgglol"      : 1,
-            "Hoovyzepoot"       : 2,
-            "Watboi"            : 3,
-            "ASimpleCreator"    : 4,
-            "Catarmour"         : 5,
-            "Aurimukstis1"      : 6,
-            "Tuna"              : 7,
-            "Rubidianlabs"      : 8,
-            "LightningBMW"      : 9,
-            "N2H4"              : 10,
-            "Loiosh"            : 11,
-            "Antigrain"         : 12,
-            "AVeryBigNurd"      : 13,
-            "Superbantom"       : 14,
-            "NuttyMCNuttzz"     : 15,
-            "Raven314"          : 16,
-            "Spikey_boy"        : 17
-                                }
-
-        for i, (biome_name, biome_id) in enumerate(self.pallete.items()):
-            rgb = REVERSED_ID_MAP.get(biome_id,0)
+        for i, (biome_name, biome_id) in enumerate(na.BIOME_PALETTE.items()):
+            rgb = na.TILE_ID_MAP.get(biome_id,0)
             rgba= rgb + (255,)
             button = arcade.gui.UIFlatButton(height=32,width=32,style={
                 "normal": arcade.gui.UIFlatButton.UIStyle(bg=(rgba[0],rgba[1],rgba[2],rgba[3])),
@@ -554,8 +281,8 @@ class Game(arcade.Window):
                 self.selected_lower_id = idx
                 self.on_notification_toast(f"Selected {name}")
 
-        for i, (country_owner, country_id) in enumerate(self.country_pallete.items()):
-            rgb = REVERSED_POLITICAL_ID_MAP.get(country_id,0)
+        for i, (country_owner, country_id) in enumerate(na.COUNTRY_PALETTE.items()):
+            rgb = na.POLITICAL_ID_MAP.get(country_id,0)
             rgba= rgb + (255,)
             button = arcade.gui.UIFlatButton(height=32,width=32,style={
                 "normal": arcade.gui.UIFlatButton.UIStyle(bg=(rgba[0],rgba[1],rgba[2],rgba[3])),
@@ -674,26 +401,6 @@ class Game(arcade.Window):
         layer_buttons.add(biome_palette_toggle)
         layer_buttons.add(political_palette_toggle)
 
-    def get_attributes(self) -> dict:
-        """Getting an attribute from the local file"""
-        attributes_dictionary = None
-        with open('local_data/attributes.json') as attributes_file:
-            attributes_dictionary = json.load(attributes_file)
-        print(f"O- local attributes accessed: {attributes_dictionary}")
-        return attributes_dictionary
-    
-    def set_attributes(self, attribute_name:str, input):
-        """Setting an attribute in the local file"""
-        attributes_dictionary = None
-        with open('local_data/attributes.json', 'r') as attributes_file:
-            attributes_dictionary = json.load(attributes_file)
-
-        attributes_dictionary[f'{attribute_name}'] = input
-
-        with open('local_data/attributes.json', 'w') as attributes_file:
-            json.dump(attributes_dictionary, attributes_file)
-            print(f"O- local attributes accessed: {attributes_dictionary}")
-
     def on_notification_toast(self, message:str="", warn:bool=False, error:bool=False, success:bool=False):
         toast = na.Toast(message, duration=2)
 
@@ -806,7 +513,7 @@ class Game(arcade.Window):
                     if id_ == 255:
                         pixel_rgba = (0,0,0,0)
                     else:
-                        pixel_rgba = REVERSED_ID_MAP.get(id_, (0, 0, 0)) + (255,)
+                        pixel_rgba = na.TILE_ID_MAP.get(id_, (0, 0, 0)) + (255,)
 
                     tile = na.Tile(1, 1, world_x-9.5, world_y-9.5, pixel_rgba, id_)
                     chunk_spritelist.append(tile)
@@ -872,9 +579,8 @@ class Game(arcade.Window):
 
     def setup(self):
         print("?- loading icons [1/3] ...")
-
         for icon in self.icons['locations']:
-            icon_path = str(ICON_ID_MAP.get(icon['id'])) + ".png"
+            icon_path = str(na.ICON_ID_MAP.get(icon['id'])) + ".png"
             icon_object = na.Icon(
                 icon_path, 1,
                 icon['x'], icon['y'],
@@ -888,166 +594,77 @@ class Game(arcade.Window):
             self.info_scene.add_sprite("0", icon_object)
             self.info_scene_list.append(icon_object)
 
-        precomputed_terrain_colors = np.array([
-            REVERSED_ID_MAP.get(i, (255, 255, 255)) for i in range(256)
-        ])
-        precomputed_political_colors = np.array([
-            REVERSED_POLITICAL_ID_MAP.get(i, (53, 53, 53)) for i in range(256)
-        ])
+        # --- generating the hemispheres
+        # north_tiles_list = na.compute_tiles(self.upper_terrain_layer,self.political_layer,0,600,0,300,0,"north",precomputed_terrain_colors,precomputed_political_colors)
+        # south_tiles_list = na.compute_tiles(self.s_upper_terrain_layer,self.s_political_layer,0,600,0,300,-6000,"south",precomputed_terrain_colors,precomputed_political_colors)
 
-        def compute_tiles(upper_layer, political_layer, x_start, x_end, y_start, y_end, offset_y, map_name, result_list):
-            print(f"?- precomputing {map_name} map tiles in background thread : {threading.current_thread()} ...")
+        # print("?- adding precomputed north map tiles [2/3] ...")
+        # for tile, political_tile, x, y in north_tiles_list:
+        #     self.terrain_scene.add_sprite("1", tile)
+        #     self.political_scene.add_sprite("0", political_tile)
+        #     self.upper_terrain_layer.grid[x][y] = tile
+        #     self.political_layer.grid[x][y] = political_tile
 
-            temp_tiles = []
+        # print("?- adding precomputed south map tiles [3/3] ...")
+        # for tile, political_tile, x, y in south_tiles_list:
+        #     self.terrain_scene.add_sprite("1", tile)
+        #     self.political_scene.add_sprite("0", political_tile)
+        #     self.s_upper_terrain_layer.grid[x][y] = tile
+        #     self.s_political_layer.grid[x][y] = political_tile
 
-            grid_terrain = upper_layer.grid
-            grid_political = political_layer.grid
+        north_coord_sets = [
+            (0, 300, 0, 150),    # Northwest quadrant
+            (0, 300, 150, 300),  # Northeast quadrant
+            (300, 600, 0, 150),  # Southwest quadrant
+            (300, 600, 150, 300) # Southeast quadrant
+        ]
 
-            for x in range(x_start, x_end):
-                if x % 50 == 0:
-                    print(f"O- {round((x / 600) * 100)}% {map_name} computed : {threading.current_thread()} ...")
+        north_tiles_list = []
 
-                terrain_row = grid_terrain[x]
-                political_row = grid_political[x]
+        with multiprocessing.Pool(processes=4, maxtasksperchild=1) as pool:
+            timer = time.time()
+            print("?- generating args for tiles ...")
+            args = [
+                (coords, self.upper_terrain_layer, self.political_layer, precomputed_terrain_colors, precomputed_political_colors, "north") 
+                for coords in north_coord_sets
+            ]
+            print("O- done, proceeding ...")
 
-                for y in range(y_start, y_end):
-                    tile_id = terrain_row[y]
-                    political_tile_id = political_row[y]
+            print("?- starting tile computation ...")
+            north_tiles_list = list(itertools.chain.from_iterable(
+                pool.starmap(na.compute_tiles_wrapper, args)
+            ))
+            print(f"O- pool exited at {round(time.time()-timer,2)}s")
 
-                    pixel_rgb = precomputed_terrain_colors[tile_id]
-                    political_rgb = precomputed_political_colors[political_tile_id]
+            print("?- adding precomputed tiles ...")
+            for tile, political_tile, x, y in north_tiles_list:
+                self.terrain_scene.add_sprite("1", tile)
+                self.political_scene.add_sprite("0", political_tile)
+                self.lower_terrain_layer.grid[x][y] = tile
+                self.political_layer.grid[x][y] = political_tile
 
-                    world_x = x * 20
-                    world_y = (y * 20) + offset_y
+            # adding south map loading later idfk
 
-                    terrain_alpha = 0 if tile_id == 0 else 255
-                    political_alpha = 100 if tile_id == 0 else 255
-
-                    tile = na.Tile(20, 20, world_x, world_y, (*pixel_rgb, terrain_alpha), tile_id)
-                    political_tile = na.Tile(20, 20, world_x, world_y, (*political_rgb, political_alpha), political_tile_id)
-
-                    temp_tiles.append((tile, political_tile, x, y))
-
-            result_list.extend(temp_tiles)
-
-        north_tiles = []
-        south_tiles = []
-
-        # Create threads for computing tiles in chunks (4 threads: 2 horizontally and 2 vertically)
-        chunk_size_x = 600 // 2
-        chunk_size_y = 300 // 2 
-
-        # North map
-        thread_north_1 = threading.Thread(target=compute_tiles, args=(self.upper_terrain_layer, self.political_layer, 0, chunk_size_x, 0, chunk_size_y, 0, "north", north_tiles))
-        print(f"I- creating thread : {thread_north_1.name}")
-        thread_north_2 = threading.Thread(target=compute_tiles, args=(self.upper_terrain_layer, self.political_layer, chunk_size_x, 600, 0, chunk_size_y, 0, "north", north_tiles))
-        print(f"I- creating thread : {thread_north_2.name}")
-        thread_north_3 = threading.Thread(target=compute_tiles, args=(self.upper_terrain_layer, self.political_layer, 0, chunk_size_x, chunk_size_y, 300, 0, "north", north_tiles))
-        print(f"I- creating thread : {thread_north_3.name}")
-        thread_north_4 = threading.Thread(target=compute_tiles, args=(self.upper_terrain_layer, self.political_layer, chunk_size_x, 600, chunk_size_y, 300, 0, "north", north_tiles))
-        print(f"I- creating thread : {thread_north_4.name}")
-        # South map
-        thread_south_1 = threading.Thread(target=compute_tiles, args=(self.s_upper_terrain_layer, self.s_political_layer, 0, chunk_size_x, 0, chunk_size_y, -6000, "south", south_tiles))
-        print(f"I- creating thread : {thread_south_1.name}")
-        thread_south_2 = threading.Thread(target=compute_tiles, args=(self.s_upper_terrain_layer, self.s_political_layer, chunk_size_x, 600, 0, chunk_size_y, -6000, "south", south_tiles))
-        print(f"I- creating thread : {thread_south_2.name}")
-        thread_south_3 = threading.Thread(target=compute_tiles, args=(self.s_upper_terrain_layer, self.s_political_layer, 0, chunk_size_x, chunk_size_y, 300, -6000, "south", south_tiles))
-        print(f"I- creating thread : {thread_south_3.name}")
-        thread_south_4 = threading.Thread(target=compute_tiles, args=(self.s_upper_terrain_layer, self.s_political_layer, chunk_size_x, 600, chunk_size_y, 300, -6000, "south", south_tiles))
-        print(f"I- creating thread : {thread_south_4.name}")
-
-        thread_north_1.start()
-        thread_north_2.start()
-        thread_north_3.start()
-        thread_north_4.start()
-
-        thread_south_1.start()
-        thread_south_2.start()
-        thread_south_3.start()
-        thread_south_4.start()
-
-        thread_north_1.join()
-        thread_north_2.join()
-        thread_north_3.join()
-        thread_north_4.join()
-
-        thread_south_1.join()
-        thread_south_2.join()
-        thread_south_3.join()
-        thread_south_4.join()
-
-        print("?- adding precomputed north map tiles [2/3] ...")
-        for tile, political_tile, x, y in north_tiles:
-            self.terrain_scene.add_sprite("1", tile)
-            self.political_scene.add_sprite("0", political_tile)
-            self.upper_terrain_layer.grid[x][y] = tile
-            self.political_layer.grid[x][y] = political_tile
-
-        print("?- adding precomputed south map tiles [3/3] ...")
-        for tile, political_tile, x, y in south_tiles:
-            self.terrain_scene.add_sprite("1", tile)
-            self.political_scene.add_sprite("0", political_tile)
-            self.s_upper_terrain_layer.grid[x][y] = tile
-            self.s_political_layer.grid[x][y] = political_tile
-            
+        def _create_keybind_label(text):
+            return arcade.gui.UITextArea(
+                text=text,
+                width=200,
+                height=20,
+                font_size=10
+            ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
         if self.is_keybind_box_disabled == False:
             print("?- Loading keybind popup")
-            label = arcade.gui.UITextArea(
-                text=f"[ O ] - Editing mode",
-                width=200,
-                height=20,
-                font_size=10
-            ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
-            self.keybinds_box.add(label)
-            label = arcade.gui.UITextArea(
-                text=f"[ Scroll ] - Scrool zoom",
-                width=200,
-                height=20,
-                font_size=10
-            ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
-            self.keybinds_box.add(label)
-            label = arcade.gui.UITextArea(
-                text=f"[ + ] - Zoom in",
-                width=200,
-                height=20,
-                font_size=10
-            ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
-            self.keybinds_box.add(label)
-            label = arcade.gui.UITextArea(
-                text=f"[ - ] - Zoom out",
-                width=200,
-                height=20,
-                font_size=10
-            ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
-            self.keybinds_box.add(label)
-            label = arcade.gui.UITextArea(
-                text=f"[ RMB ] - Pan camera",
-                width=200,
-                height=20,
-                font_size=10
-            ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
-            self.keybinds_box.add(label)
-            label = arcade.gui.UITextArea(
-                text=f"[ LMB ] - Select/Place",
-                width=200,
-                height=20,
-                font_size=10
-            ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
-            self.keybinds_box.add(label)
-            label = arcade.gui.UITextArea(
-                text=f"[ M ] - Toggle moving mode",
-                width=200,
-                height=20,
-                font_size=10
-            ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
-            self.keybinds_box.add(label)
-            label = arcade.gui.UITextArea(
-                text=f"[ R ] - Toggle rotate mode",
-                width=200,
-                height=20,
-                font_size=10
-            ).with_background(color=arcade.types.Color(10,10,10,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
-            self.keybinds_box.add(label)
+
+            self.keybinds_box.add(_create_keybind_label("[ O ] - Editing mode"))
+            self.keybinds_box.add(_create_keybind_label("[ Scroll ] - Scrool zoom"))
+            self.keybinds_box.add(_create_keybind_label("[ + ] - Zoom in"))
+            self.keybinds_box.add(_create_keybind_label("[ - ] - Zoom out"))
+            self.keybinds_box.add(_create_keybind_label("[ RMB ] - Pan camera"))
+            self.keybinds_box.add(_create_keybind_label("[ LMB ] - Select/Place"))
+            self.keybinds_box.add(_create_keybind_label("[ M ] - Toggle moving mode"))
+            self.keybinds_box.add(_create_keybind_label("[ R ] - Toggle rotate mode"))
+            self.keybinds_box.add(_create_keybind_label("[ P ] - Show brushes menu"))
+            self.keybinds_box.add(_create_keybind_label("[ E ] - Toggle icons menu"))
 
             close_keybinds_button = arcade.gui.UIFlatButton(width=200,height=20,text="Close").with_background(color=arcade.types.Color(25,25,25,255)).with_border(width=1,color=arcade.types.Color(30,30,30,255))
             self.keybinds_box.add(close_keybinds_button)
@@ -1062,7 +679,7 @@ class Game(arcade.Window):
 
             @toggle_keybinds_attribute.event
             def on_click(event: arcade.gui.UIOnClickEvent):
-                self.set_attributes('keybinds_disable',True)
+                na.set_attributes('keybinds_disable',True)
                 self.keybinds_box.clear()
                 self.keybinds_box.visible = False
 
@@ -1120,7 +737,7 @@ class Game(arcade.Window):
 
         for icon in self.info_scene_list:
             icon.scale = max(1.0-(self.camera.zoom/3),0.05)
-            icon.color = QUALITY_COLOR_MAP.get(icon.quality, (255,0,0,255))
+            icon.color = na.QUALITY_COLOR_MAP.get(icon.quality, (255,0,0,255))
 
     def on_draw(self):
         self.camera.use() 
@@ -1218,7 +835,31 @@ class Game(arcade.Window):
         if symbol   == arcade.key.E:
             self.mouse_click_anchor.visible = not self.mouse_click_anchor.visible
         if symbol   == arcade.key.P:
-            self.mouse_brush_anchor.visible = not self.mouse_brush_anchor.visible
+            brushes = na.get_all_files('local_data/brushes')
+            print(f"I- found {brushes.__len__()} brush files")
+            for idx, path in enumerate(brushes):
+                icon_texture = arcade.load_texture(path)
+                button = arcade.gui.UIFlatButton(text="", width=64, height=64)
+                button.add(
+                    child=arcade.gui.UIImage(texture=icon_texture, width=32, height=32),
+                    anchor_x="center",
+                    anchor_y="center"
+                )
+                self.brush_menu_options.add(button, idx % 10, idx // 10)
+                self.brush_buttons.append(button)
+
+                @button.event
+                def on_click(event: arcade.gui.UIOnClickEvent, idx=idx, path=path):
+                    if idx == 0:
+                        self.selected_brush = None
+                        self.brush_menu_options.clear()
+                        self.on_notification_toast(f"Deselected brush")
+                        self.brush_buttons.clear()
+                    else:
+                        self.selected_brush = path
+                        self.brush_menu_options.clear()
+                        self.on_notification_toast(f"Selected {path}")
+                        self.brush_buttons.clear()
         if symbol   == arcade.key.ESCAPE:
             self.popupmenu_buttons.visible = not self.popupmenu_buttons.visible
         
@@ -1264,7 +905,7 @@ class Game(arcade.Window):
             if self.editing_mode == True:
                 if self.camera.zoom >= 2.5:
                     if self.selected_brush:
-                        coordinates = get_pixel_coordinates(self.selected_brush)
+                        coordinates = na.get_pixel_coordinates(self.selected_brush)
                         if not coordinates:
                             print("No coordinates provided.")
                             return
@@ -1277,7 +918,7 @@ class Game(arcade.Window):
                         center_x = (min_x + max_x) / 2
                         center_y = (min_y + max_y) / 2
                         
-                        pixel_rgba = REVERSED_ID_MAP.get(self.selected_lower_id, (0,0,0)) + (255,)
+                        pixel_rgba = na.TILE_ID_MAP.get(self.selected_lower_id, (0,0,0)) + (255,)
                         
                         target_positions = []
                         for rel_x, rel_y in coordinates:
@@ -1319,7 +960,7 @@ class Game(arcade.Window):
                         for x_ in range(self.editing_mode_size):
                             for y_ in range(self.editing_mode_size):
                                 if not list_of_tiles[x_][y_] is None:
-                                    pixel_rgba = REVERSED_ID_MAP.get(self.selected_lower_id,(0,0,0)) + (255,)
+                                    pixel_rgba = na.TILE_ID_MAP.get(self.selected_lower_id,(0,0,0)) + (255,)
                                     list_of_tiles[x_][y_].color = pixel_rgba
                                     list_of_tiles[x_][y_].id_ = self.selected_lower_id
                                 else:
@@ -1332,9 +973,9 @@ class Game(arcade.Window):
                         political_tile_to_edit = self.s_political_layer.__getitem__((tile_x,300-abs(tile_y)))
 
                     if political_tile_to_edit:
-                        political_tile_to_edit.color = REVERSED_POLITICAL_ID_MAP.get(self.selected_country_id,0)
+                        political_tile_to_edit.color = na.POLITICAL_ID_MAP.get(self.selected_country_id,0)
                         political_tile_to_edit.id_ = self.selected_country_id
-                        print(f"set {tile_x,tile_y} to id {self.selected_country_id}, color {REVERSED_POLITICAL_ID_MAP.get(self.selected_country_id,0)}")
+                        print(f"set {tile_x,tile_y} to id {self.selected_country_id}, color {na.POLITICAL_ID_MAP.get(self.selected_country_id,0)}")
 
             else:
                 if self.selected_icon_id or self.selected_icon_id == 0:
@@ -1349,7 +990,7 @@ class Game(arcade.Window):
                             self.drawing_line_start = None
                             self.drawing_line_end = None
                     else:
-                        icon_path = str(ICON_ID_MAP.get(self.selected_icon_id))+".png"
+                        icon_path = str(na.ICON_ID_MAP.get(self.selected_icon_id))+".png"
                         generated_unique_id:int = random.randrange(1000,9999)
                         icon = na.Icon(icon_path,1,world_x,world_y,0.0,self.selected_icon_id,0,generated_unique_id,0,1)
                         self.info_scene.add_sprite("0",icon)
@@ -1582,7 +1223,7 @@ class Game(arcade.Window):
             if self.editing_mode == True:
                 if self.camera.zoom >= 2.5:
                     if self.selected_brush:
-                        coordinates = get_pixel_coordinates(self.selected_brush)
+                        coordinates = na.get_pixel_coordinates(self.selected_brush)
                         if not coordinates:
                             print("No coordinates provided.")
                             return
@@ -1595,7 +1236,7 @@ class Game(arcade.Window):
                         center_x = (min_x + max_x) / 2
                         center_y = (min_y + max_y) / 2
                         
-                        pixel_rgba = REVERSED_ID_MAP.get(self.selected_lower_id, (0,0,0)) + (255,)
+                        pixel_rgba = na.TILE_ID_MAP.get(self.selected_lower_id, (0,0,0)) + (255,)
                         
                         target_positions = []
                         for rel_x, rel_y in coordinates:
@@ -1637,7 +1278,7 @@ class Game(arcade.Window):
                         for x_ in range(self.editing_mode_size):
                             for y_ in range(self.editing_mode_size):
                                 if not list_of_tiles[x_][y_] is None:
-                                    pixel_rgba = REVERSED_ID_MAP.get(self.selected_lower_id,(0,0,0)) + (255,)
+                                    pixel_rgba = na.TILE_ID_MAP.get(self.selected_lower_id,(0,0,0)) + (255,)
                                     list_of_tiles[x_][y_].color = pixel_rgba
                                     list_of_tiles[x_][y_].id_ = self.selected_lower_id
                                 else:
@@ -1702,6 +1343,7 @@ class Game(arcade.Window):
 # ---
 
 def main():
+    multiprocessing.freeze_support()
     print("I- GAME INITIALIZING ...")
     game = Game(WIDTH, HEIGHT, "NATIONWIDER")
     # game.setup()
