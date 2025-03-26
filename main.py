@@ -27,12 +27,12 @@ if __name__ == "__main__":
     except:
         print(f"X- {Exception}: imagefiles not found")
 
-    precomputed_terrain_colors = np.array([
-        na.TILE_ID_MAP.get(i, (255, 255, 255)) for i in range(256)
-    ])
-    precomputed_political_colors = np.array([
-        na.POLITICAL_ID_MAP.get(i, (53, 53, 53)) for i in range(256)
-    ])
+    # precomputed_terrain_colors = np.array([
+    #     na.TERRAIN_ID_MAP.get(i, (255, 255, 255)) for i in range(256)
+    # ])
+    # precomputed_political_colors = np.array([
+    #     na.POLITICAL_ID_MAP.get(i, (53, 53, 53)) for i in range(256)
+    # ])
 
 
 # ---
@@ -268,7 +268,7 @@ class Game(arcade.Window):
         self.popupmenu_buttons.add(save_button)
 
         for i, (biome_name, biome_id) in enumerate(na.BIOME_PALETTE.items()):
-            rgb = na.TILE_ID_MAP.get(biome_id, 0)
+            rgb = na.TERRAIN_ID_MAP.get(biome_id, 0)
             rgba = rgb + (255,)
             button = arcade.gui.UIFlatButton(height=32, width=32, style={
                 "normal": arcade.gui.UIFlatButton.UIStyle(bg=(rgba[0], rgba[1], rgba[2], rgba[3])),
@@ -514,7 +514,7 @@ class Game(arcade.Window):
                     if id_ == 255:
                         pixel_rgba = (0, 0, 0, 0)
                     else:
-                        pixel_rgba = na.TILE_ID_MAP.get(id_, (0, 0, 0)) + (255,)
+                        pixel_rgba = na.TERRAIN_ID_MAP.get(id_, (0, 0, 0)) + (255,)
 
                     tile = na.Tile(1, 1, world_x-9.5, world_y-9.5, pixel_rgba, id_)
                     chunk_spritelist.append(tile)
@@ -607,16 +607,18 @@ class Game(arcade.Window):
         terrain_alpha = np.where(self.upper_terrain_layer.grid == 0, 0, 255)
         political_alpha = np.where(self.upper_terrain_layer.grid == 0, 100, 255)
 
-        x, y = np.meshgrid(np.arange(y_start, y_end), np.arange(x_start, x_end))
+        y, x = np.meshgrid(np.arange(y_start, y_end), np.arange(x_start, x_end))
         world_x = x*20
         world_y = y*20
+
+        # breakpoint()
 
         argument_stack = np.stack((x, y, world_x, world_y, self.upper_terrain_layer.grid, self.political_layer.grid, terrain_alpha, political_alpha), axis=-1)
         arguments = argument_stack.reshape(-1, argument_stack.shape[2])
 
         t1 = time.time()
         for arg in arguments:
-            tile, political_tile, y, x = na.compute_tiles_2(*arg)
+            tile, political_tile, x, y = na.compute_tiles_2(*arg)
             self.terrain_scene.add_sprite("1", tile)
             self.political_scene.add_sprite("0", political_tile)
             self.lower_terrain_layer.grid[x][y] = tile
@@ -913,7 +915,7 @@ class Game(arcade.Window):
                         center_x = (min_x + max_x) / 2
                         center_y = (min_y + max_y) / 2
 
-                        pixel_rgba = na.TILE_ID_MAP.get(self.selected_lower_id, (0, 0, 0)) + (255,)
+                        pixel_rgba = na.TERRAIN_ID_MAP.get(self.selected_lower_id, (0, 0, 0)) + (255,)
 
                         target_positions = []
                         for rel_x, rel_y in coordinates:
@@ -955,7 +957,7 @@ class Game(arcade.Window):
                         for x_ in range(self.editing_mode_size):
                             for y_ in range(self.editing_mode_size):
                                 if not list_of_tiles[x_][y_] is None:
-                                    pixel_rgba = na.TILE_ID_MAP.get(self.selected_lower_id, (0, 0, 0)) + (255,)
+                                    pixel_rgba = na.TERRAIN_ID_MAP.get(self.selected_lower_id, (0, 0, 0)) + (255,)
                                     list_of_tiles[x_][y_].color = pixel_rgba
                                     list_of_tiles[x_][y_].id_ = self.selected_lower_id
                                 else:
@@ -1231,7 +1233,7 @@ class Game(arcade.Window):
                         center_x = (min_x + max_x) / 2
                         center_y = (min_y + max_y) / 2
 
-                        pixel_rgba = na.TILE_ID_MAP.get(self.selected_lower_id, (0, 0, 0)) + (255,)
+                        pixel_rgba = na.TERRAIN_ID_MAP.get(self.selected_lower_id, (0, 0, 0)) + (255,)
 
                         target_positions = []
                         for rel_x, rel_y in coordinates:
@@ -1273,7 +1275,7 @@ class Game(arcade.Window):
                         for x_ in range(self.editing_mode_size):
                             for y_ in range(self.editing_mode_size):
                                 if not list_of_tiles[x_][y_] is None:
-                                    pixel_rgba = na.TILE_ID_MAP.get(self.selected_lower_id, (0, 0, 0)) + (255,)
+                                    pixel_rgba = na.TERRAIN_ID_MAP.get(self.selected_lower_id, (0, 0, 0)) + (255,)
                                     list_of_tiles[x_][y_].color = pixel_rgba
                                     list_of_tiles[x_][y_].id_ = self.selected_lower_id
                                 else:

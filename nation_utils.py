@@ -149,8 +149,8 @@ def get_pixel_coordinates(image_path: str) -> list:
 def compute_tiles_2(x, y, world_x, world_y, terrain_id, pol_id, terrain_alpha, political_alpha):
     # If the bible is so good, why isn't there a bible 2
 
-    tile = Tile(20, 20, world_x, world_y, (*TILE_ID_MAP.get(terrain_id, (255, 255, 255)), terrain_alpha), terrain_id)
-    political_tile = Tile(20, 20, world_x, world_y, (*TILE_ID_MAP.get(pol_id, (255, 255, 255)), political_alpha), pol_id)
+    tile = Tile(20, 20, world_x, world_y, (*TERRAIN_ID_MAP.get(terrain_id, (255, 255, 255)), terrain_alpha), terrain_id)
+    political_tile = Tile(20, 20, world_x, world_y, (*POLITICAL_ID_MAP.get(pol_id, (255, 255, 255)), political_alpha), pol_id)
 
     return (tile, political_tile, x, y)
 
@@ -183,7 +183,7 @@ def compute_tiles_2(x, y, world_x, world_y, terrain_id, pol_id, terrain_alpha, p
 
 
 # ---
-TILE_ID_MAP = {
+TERRAIN_ID_MAP = {
     255: (0, 0, 0),       # CLEAR TILE [ NONE ]
     254: (53, 53, 53),    # POLITICAL LAND
     253: (53, 53, 53),    # POLITICAL WATER
