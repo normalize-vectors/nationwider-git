@@ -604,25 +604,29 @@ class Game(arcade.Window):
 
         # Begin numpy jiu jitsu
 
-        terrain_alpha = np.where(self.upper_terrain_layer.grid == 0, 0, 255)
-        political_alpha = np.where(self.upper_terrain_layer.grid == 0, 100, 255)
+        def compute_hemisphere(upper_terrain_layer, political_layer, south):
+            terrain_alpha = np.where(upper_terrain_layer.grid == 0, 0, 255)
+            political_alpha = np.where(upper_terrain_layer.grid == 0, 100, 255)
 
-        y, x = np.meshgrid(np.arange(y_start, y_end), np.arange(x_start, x_end))
-        world_x = x*20
-        world_y = y*20
+            y, x = np.meshgrid(np.arange(y_start, y_end), np.arange(x_start, x_end))
+            world_x = x*20
+            world_y = y*20
+            if south:
+                world_y -= 6000
 
-        # breakpoint()
+            argument_stack = np.stack((x, y, world_x, world_y, upper_terrain_layer.grid, political_layer.grid, terrain_alpha, political_alpha), axis=-1)
+            arguments = argument_stack.reshape(-1, argument_stack.shape[2])
 
-        argument_stack = np.stack((x, y, world_x, world_y, self.upper_terrain_layer.grid, self.political_layer.grid, terrain_alpha, political_alpha), axis=-1)
-        arguments = argument_stack.reshape(-1, argument_stack.shape[2])
+            for arg in arguments:
+                tile, political_tile, x, y = na.compute_tiles_2(*arg)
+                self.terrain_scene.add_sprite("1", tile)
+                self.political_scene.add_sprite("0", political_tile)
+                self.lower_terrain_layer.grid[x][y] = tile
+                self.political_layer.grid[x][y] = political_tile
 
         t1 = time.time()
-        for arg in arguments:
-            tile, political_tile, x, y = na.compute_tiles_2(*arg)
-            self.terrain_scene.add_sprite("1", tile)
-            self.political_scene.add_sprite("0", political_tile)
-            self.lower_terrain_layer.grid[x][y] = tile
-            self.political_layer.grid[x][y] = political_tile
+        compute_hemisphere(self.upper_terrain_layer, self.political_layer, south=False)
+        compute_hemisphere(self.s_upper_terrain_layer, self.s_political_layer, south=True)
         print(f"Singled threaded time:{(time.time()-t1):.2f}s")
 
         # t2 = time.time()
